@@ -1,0 +1,35 @@
+pytz==2023.3  # https://github.com/stub42/pytz
+python-slugify==8.0.1  # https://github.com/un33k/python-slugify
+Pillow==9.5.0  # https://github.com/python-pillow/Pillow
+argon2-cffi==21.3.0  # https://github.com/hynek/argon2_cffi
+redis==4.5.4  # https://github.com/redis/redis-py
+hiredis==2.2.2  # https://github.com/redis/hiredis-py
+celery==5.2.7  # pyup: < 6.0  # https://github.com/celery/celery
+django-celery-beat==2.5.0  # https://github.com/celery/django-celery-beat
+flower==1.2.0  # https://github.com/mher/flower
+uvicorn[standard]==0.21.1  # https://github.com/encode/uvicorn
+
+# Django
+# ------------------------------------------------------------------------------
+django==4.2  # pyup: < 4.2  # https://www.djangoproject.com/
+django-environ==0.10.0  # https://github.com/joke2k/django-environ
+django-model-utils==4.3.1  # https://github.com/jazzband/django-model-utils
+django-allauth==0.54.0  # https://github.com/pennersr/django-allauth
+django-redis==5.2.0  # https://github.com/jazzband/django-redis
+# Django REST Framework
+djangorestframework==3.14.0  # https://github.com/encode/django-rest-framework
+django-cors-headers==3.14.0  # https://github.com/adamchainz/django-cors-headers
+dj-rest-auth==3.0.0  # https://github.com/iMerica/dj-rest-auth
+djangorestframework-simplejwt==5.2.2 # https://github.com/jazzband/djangorestframework-simplejwt
+djangorestframework-api-key==2.3.0  # https://github.com/florimondmanca/djangorestframework-api-key
+# DRF-spectacular for api documentation
+drf-spectacular==0.26.1  # https://github.com/tfranzel/drf-spectacular
+
+# Custom models/fields
+django-address==0.2.8  # https://github.com/furious-luke/django-address
+django-phonenumber-field[phonenumbers]==7.0.2  # https://github.com/stefanfoulis/django-phonenumber-field
+
+
+# Planner Optimization
+# ------------------------------------------------------------------------------
+optapy==8.31.1b0 # https://github.com/optapy/optapy

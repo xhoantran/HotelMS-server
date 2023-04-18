@@ -62,8 +62,7 @@ class ChannexClient:
     def _date_to_str(self, date: datetime.date | str):
         if isinstance(date, str):
             return date
-        else:
-            return date.strftime("%Y-%m-%d")
+        return date.strftime("%Y-%m-%d")
 
     def get_webhooks(self):
         return self._get("webhooks")

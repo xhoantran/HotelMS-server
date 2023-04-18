@@ -102,8 +102,20 @@ def mocked_channex_validation(mocker):
         return_value=True,
     )
     mocker.patch(
-        "backend.pms.adapter.channex.ChannexPMSAdapter.validate_pms_id",
-        return_value=True,
+        "backend.utils.channex_client.ChannexClient.get_property",
+        return_value=mocker.Mock(
+            status_code=200,
+            json=mocker.Mock(
+                # Removed unnecessary fields
+                return_value={
+                    "data": {
+                        "attributes": {
+                            "settings": {"state_length": 200},
+                        }
+                    }
+                }
+            ),
+        ),
     )
     mocker.patch(
         "backend.utils.channex_client.ChannexClient.get_rate_plans",

@@ -35,8 +35,8 @@ def post_save_user(sender, instance, created, **kwargs):
 @receiver(post_save, sender=Hotel, dispatch_uid="pms:post_save_hotel")
 def post_save_hotel(sender, instance: Hotel, created, **kwargs):
     if created:
-        if instance.pms == Hotel.PMSChoices.CHANNEX:
-            instance.adapter.set_up()
+        if instance.pms != Hotel.PMSChoices.__empty__:
+            instance.adapter.sync_up()
 
 
 @receiver(post_save, sender=HotelEmployee, dispatch_uid="pms:post_save_hotel_employee")
@@ -48,7 +48,7 @@ def post_save_hotel_employee(sender, instance: HotelEmployee, created, **kwargs)
 
 @receiver(post_save, sender=RatePlan, dispatch_uid="pms:post_save_rate_plan")
 def post_save_rate_plan(sender, instance: RatePlan, created, **kwargs):
-    if created:
+    if created and instance.room_type.hotel.pms == Hotel.PMSChoices.__empty__:
         rate_plan_restrictions = []
         window = instance.room_type.hotel.inventory_days
         for i in range(window + 1):

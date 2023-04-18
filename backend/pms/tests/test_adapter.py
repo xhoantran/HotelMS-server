@@ -112,9 +112,6 @@ def test_pms_base_adapter(hotel_factory):
     with pytest.raises(NotImplementedError):
         adapter.get_room_type_rate_plan_restrictions()
 
-    with pytest.raises(NotImplementedError):
-        adapter.set_up()
-
 
 class TestDefaultPMSAdapter:
     def test_get_rate_plans(self, hotel_factory, room_type_factory, rate_plan_factory):
@@ -159,11 +156,6 @@ class TestDefaultPMSAdapter:
         with pytest.raises(ValueError):
             adapter.get_room_type_rate_plan_restrictions(room_type=room_type.id)
 
-    def test_set_up(self, hotel_factory):
-        hotel = hotel_factory()
-        adapter = DefaultPMSAdapter(hotel)
-        adapter.set_up()
-
 
 class TestChannexPMSAdapter:
     def test_init(self, mocked_channex_validation, hotel_factory):
@@ -171,13 +163,7 @@ class TestChannexPMSAdapter:
         adapter = ChannexPMSAdapter(hotel)
         assert adapter.hotel == hotel
 
-    def test_normalize_date_format(self):
-        assert ChannexPMSAdapter._normalize_date_format(
-            timezone.now()
-        ) == timezone.now().strftime("%Y-%m-%d")
-        assert ChannexPMSAdapter._normalize_date_format("2020-01-01") == "2020-01-01"
-
-    def test_set_up(
+    def test_sync_up(
         self,
         mocker,
         mocked_channex_validation,
@@ -236,7 +222,16 @@ class TestChannexPMSAdapter:
             ),
         )
         with pytest.raises(Exception):
-            ChannexPMSAdapter(hotel).set_up()
+            ChannexPMSAdapter(hotel).sync_up()
+
+        mocker.patch(
+            "backend.utils.channex_client.ChannexClient.get_property",
+            return_value=mocker.Mock(
+                status_code=401,
+            ),
+        )
+        with pytest.raises(Exception):
+            ChannexPMSAdapter(hotel).sync_up()
 
     # def test_get_room_type_rate_plan_restrictions(
     #     self,

@@ -96,7 +96,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "backend.users",
     "backend.pms",
-    # "backend.rms",
+    "backend.rms",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

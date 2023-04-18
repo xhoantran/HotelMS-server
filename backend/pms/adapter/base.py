@@ -9,7 +9,7 @@ from ..models import Hotel, RatePlan, RatePlanRestrictions, RoomType
 
 class PMSBaseAdapter:
     def __init__(self, hotel: Hotel | uuid.UUID | str):
-        self.hotel = self._covert_to_obj(hotel, Hotel)
+        self.hotel: Hotel = self._covert_to_obj(hotel, Hotel)
 
     def _convert_to_id(
         self,
@@ -44,9 +44,6 @@ class PMSBaseAdapter:
         raise NotImplementedError
 
     def get_room_type_rate_plan_restrictions(self, *args, **kwargs):
-        raise NotImplementedError
-
-    def set_up(self):
         raise NotImplementedError
 
 
@@ -91,6 +88,3 @@ class DefaultPMSAdapter(PMSBaseAdapter):
             raise ValueError("Must specify date or date_from and date_to")
 
         return RatePlanRestrictions.objects.filter(query)
-
-    def set_up(self):
-        pass

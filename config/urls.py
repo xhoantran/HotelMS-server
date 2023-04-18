@@ -20,7 +20,6 @@ if settings.DEBUG:
 urlpatterns += [
     # API url
     path("api/v1/pms/", include("backend.pms.api_router")),
-    path("api/v1/cm/", include("backend.cm.urls")),
     # API auth urls
     path("api-auth/v1/", include("backend.users.urls")),
     # DRF auth token

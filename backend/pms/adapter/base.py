@@ -46,6 +46,9 @@ class PMSBaseAdapter:
     def get_room_type_rate_plan_restrictions(self, *args, **kwargs):
         raise NotImplementedError
 
+    def set_up(self):
+        raise NotImplementedError
+
 
 class DefaultPMSAdapter(PMSBaseAdapter):
     def get_room_types(self, *args, **kwargs):
@@ -88,3 +91,6 @@ class DefaultPMSAdapter(PMSBaseAdapter):
             raise ValueError("Must specify date or date_from and date_to")
 
         return RatePlanRestrictions.objects.filter(query)
+
+    def set_up(self):
+        pass

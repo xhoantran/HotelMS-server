@@ -1,13 +1,12 @@
 import pytest
 from django.contrib.sites.models import Site
-from rest_framework.test import APIClient, RequestsClient
+from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from backend.pms.tests.factories import (
     BookingFactory,
     HotelFactory,
     RatePlanFactory,
-    RatePlanRestrictionsFactory,
     RoomFactory,
     RoomTypeFactory,
 )
@@ -103,6 +102,16 @@ def mocked_channex_validation(mocker):
         return_value=True,
     )
     mocker.patch(
-        "backend.pms.adapter.channex.ChannexPMSAdapter.validate_external_id",
+        "backend.pms.adapter.channex.ChannexPMSAdapter.validate_pms_id",
         return_value=True,
+    )
+    mocker.patch(
+        "backend.utils.channex_client.ChannexClient.get_rate_plans",
+        return_value=mocker.Mock(
+            status_code=200,
+            json=mocker.Mock(
+                # Removed unnecessary fields
+                return_value={"data": []}
+            ),
+        ),
     )

@@ -28,8 +28,8 @@ class TestHotelModel:
             "backend.utils.channex_client.ChannexClient.get_properties",
             return_value=mocker.Mock(status_code=404),
         )
-        hotel.external_api_key = "test"
-        hotel.external_id = "test"
+        hotel.pms_api_key = "test"
+        hotel.pms_id = "test"
         with pytest.raises(ValueError):
             hotel.save()
 
@@ -50,11 +50,7 @@ class TestHotelModel:
         with pytest.raises(ValueError):
             hotel.adapter
 
-    def test_channex(self, mocker, hotel_factory):
-        mocker.patch(
-            "backend.utils.channex_client.requests.get",
-            return_value=mocker.Mock(status_code=200),
-        )
+    def test_channex(self, mocked_channex_validation, hotel_factory):
         hotel = hotel_factory(channex=True)
         assert isinstance(hotel.adapter, ChannexPMSAdapter)
 

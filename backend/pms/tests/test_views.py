@@ -65,9 +65,9 @@ def test_room_type_model_view_set_admin_create(admin, manager, get_api_client):
             "hotel": manager.hotel_employee.hotel.id,
             "number_of_beds": 1,
             "base_rate": 100,
+            "pms_id": "",
         },
     )
-    print(response.data)
     assert response.status_code == status.HTTP_201_CREATED
 
 
@@ -85,9 +85,9 @@ def test_room_type_model_view_set_manager_create(manager, get_api_client):
             "hotel": manager.hotel_employee.hotel.id,
             "number_of_beds": 1,
             "base_rate": 100,
+            "pms_id": "",
         },
     )
-    print(response.data)
     assert response.status_code == status.HTTP_201_CREATED
     fake_hotel = HotelFactory()
     response = manager_api_client.post(
@@ -97,6 +97,7 @@ def test_room_type_model_view_set_manager_create(manager, get_api_client):
             "hotel": fake_hotel.id,
             "number_of_beds": 1,
             "base_rate": 100,
+            "pms_id": "",
         },
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST

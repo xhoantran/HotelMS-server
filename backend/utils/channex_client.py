@@ -65,12 +65,6 @@ class ChannexClient:
         else:
             return date.strftime("%Y-%m-%d")
 
-    def get_properties(self):
-        return self._get("properties")
-
-    def get_property(self, property_id):
-        return self._get(f"properties/{property_id}")
-
     def get_webhooks(self):
         return self._get("webhooks")
 
@@ -94,6 +88,34 @@ class ChannexClient:
     def delete_webhook(self, webhook_id):
         return self._delete(f"webhooks/{webhook_id}")
 
+    def get_properties(self, options: bool = True):
+        if options:
+            return self._get("properties/options")
+        return self._get("properties")
+
+    def get_property(self, property_id):
+        return self._get(f"properties/{property_id}")
+
+    def get_room_types(self, property_id, options: bool = True):
+        if options:
+            return self._get(f"room_types/options?filter[property_id]={property_id}")
+        return self._get(f"room_types/?filter[property_id]={property_id}")
+
+    def get_room_type(self, room_type_id):
+        return self._get(f"room_types/{room_type_id}")
+
+    def get_rate_plans(self, property_id, room_type_id=None, options: bool = True):
+        if options:
+            return self._get(
+                f"rate_plans/options?filter[property_id]={property_id}&filter[room_type_id]={room_type_id}"
+            )
+        return self._get(
+            f"rate_plans/?filter[property_id]={property_id}&filter[room_type_id]={room_type_id}"
+        )
+
+    def get_rate_plan(self, rate_plan_id):
+        return self._get(f"rate_plans/{rate_plan_id}")
+
     def get_room_type_rate_plan_restrictions(
         self,
         property_id: str,
@@ -116,7 +138,7 @@ class ChannexClient:
             params["filter[date][lte]"] = self._date_to_str(date_to)
         else:
             raise ValueError("Must provide date or date_from and date_to")
-        return self._get(f"restrictions/", params=params)
+        return self._get("restrictions/", params=params)
 
     def update_room_type_rate_plan_restrictions(self, data: Iterator[dict]):
         return self._post("restrictions", data={"values": data})

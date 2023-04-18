@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import Hotel, HotelEmployee, Room, RoomType, RatePlan, RatePlanRestrictions
+from .models import Hotel, HotelEmployee, RatePlan, RatePlanRestrictions, Room, RoomType
 
 User = get_user_model()
 

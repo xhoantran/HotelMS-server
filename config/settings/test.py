@@ -28,16 +28,3 @@ EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 # DEBUGGING FOR TEMPLATES
 # ------------------------------------------------------------------------------
 TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore # noqa F405
-
-# BENCHMARKING
-# ------------------------------------------------------------------------------
-INSTALLED_APPS += ["nplusone.ext.django"]  # noqa F405
-
-MIDDLEWARE += ["nplusone.ext.django.NPlusOneMiddleware"]  # noqa F405
-
-
-# Channex
-# ------------------------------------------------------------------------------
-CHANNEX_API_KEY = "udyfXJJqaCvV+3Nkti7FMejZ6GKSP/1wOUbDDFp/pRNisbBXjHhtuN3O3opTFlqK"
-CHANNEX_BASE_URL = "https://staging.channex.io/api/v1/"
-CHANNEX_PROPERTY_ID = "ced3f420-fba8-41cf-9a1e-61c4896da83a"

@@ -25,8 +25,8 @@ class HotelFactory(DjangoModelFactory):
     class Params:
         channex = Trait(
             pms=Hotel.PMSChoices.CHANNEX,
-            external_id=Faker("uuid4"),
-            external_api_key=Faker("password", length=32, special_chars=False),
+            pms_id=Faker("uuid4"),
+            pms_api_key=Faker("password", length=32, special_chars=False),
         )
 
     class Meta:
@@ -50,6 +50,7 @@ class RoomTypeFactory(DjangoModelFactory):
     name = Faker("word")
     number_of_beds = Faker("pyint", min_value=1, max_value=10)
     base_rate = Faker("pydecimal", left_digits=2, right_digits=2, positive=True)
+    pms_id = Faker("uuid4")
 
     class Meta:
         model = RoomType
@@ -58,6 +59,7 @@ class RoomTypeFactory(DjangoModelFactory):
 class RatePlanFactory(DjangoModelFactory):
     name = Faker("word")
     room_type = SubFactory(RoomTypeFactory)
+    pms_id = Faker("uuid4")
 
     class Meta:
         model = RatePlan
@@ -67,6 +69,7 @@ class RatePlanRestrictionsFactory(DjangoModelFactory):
     rate_plan = SubFactory(RatePlanFactory)
     date = Sequence(lambda n: timezone.now().date() + timezone.timedelta(days=n))
     rate = Faker("pydecimal", left_digits=2, right_digits=2, positive=True)
+    pms_id = Faker("uuid4")
 
     class Meta:
         model = RatePlanRestrictions

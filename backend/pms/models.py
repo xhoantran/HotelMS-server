@@ -24,12 +24,12 @@ class Hotel(models.Model):
         choices=PMSChoices.choices,
         default=PMSChoices.__empty__,
     )
-    external_id = models.UUIDField(null=True, blank=True)
+    pms_id = models.UUIDField(null=True, blank=True)
     # TODO: This should be encrypted in production
-    external_api_key = models.CharField(max_length=255, null=True, blank=True)
+    pms_api_key = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
-        unique_together = ("pms", "external_id")
+        unique_together = ("pms", "pms_id")
 
     @property
     def adapter(self):
@@ -46,13 +46,13 @@ class Hotel(models.Model):
 
     def validate_pms(self):
         if self.pms != self.PMSChoices.__empty__:
-            if not self.external_id or not self.external_api_key:
+            if not self.pms_id or not self.pms_api_key:
                 raise ValueError(
                     "External ID and API Key are required for external PMS"
                 )
-            if not self.adapter.validate_api_key(self.external_api_key):
+            if not self.adapter.validate_api_key(self.pms_api_key):
                 raise ValueError("Invalid API Key")
-            if not self.adapter.validate_external_id(self.external_id):
+            if not self.adapter.validate_pms_id(self.pms_id):
                 raise ValueError("Invalid external ID")
 
     def save(self, *args, **kwargs):
@@ -66,12 +66,12 @@ class HotelEmployee(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     user = models.OneToOneField(
         User,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="hotel_employee",
     )
     hotel = models.ForeignKey(
         Hotel,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
     )
@@ -93,13 +93,18 @@ class RoomType(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     hotel = models.ForeignKey(
         Hotel,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="room_types",
     )
     name = models.CharField(max_length=64)
-    number_of_beds = models.SmallIntegerField()
-    base_rate = models.DecimalField(max_digits=10, decimal_places=2)
-    external_id = models.UUIDField(null=True, blank=True)
+    number_of_beds = models.SmallIntegerField(default=0)
+    base_rate = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    pms_id = models.UUIDField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ("hotel", "pms_id")
 
 
 class RatePlan(models.Model):
@@ -107,21 +112,27 @@ class RatePlan(models.Model):
     name = models.CharField(max_length=64)
     room_type = models.ForeignKey(
         RoomType,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="rate_plans",
     )
-    external_id = models.UUIDField(null=True, blank=True)
+    pms_id = models.UUIDField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ("room_type", "pms_id")
 
 
 class RatePlanRestrictions(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     rate_plan = models.ForeignKey(
         RatePlan,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="restrictions",
     )
     date = models.DateField()
     rate = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        unique_together = ("rate_plan", "date")
 
 
 class Room(models.Model):
@@ -129,7 +140,7 @@ class Room(models.Model):
     number = models.IntegerField()
     room_type = models.ForeignKey(
         RoomType,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="rooms",
     )
 

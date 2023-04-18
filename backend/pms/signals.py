@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from backend.pms.models import (
     Booking,
+    Hotel,
     HotelEmployee,
     RatePlan,
     RatePlanRestrictions,
@@ -31,15 +32,22 @@ def post_save_user(sender, instance, created, **kwargs):
             instance.save(update_fields=["is_active"])
 
 
+@receiver(post_save, sender=Hotel, dispatch_uid="pms:post_save_hotel")
+def post_save_hotel(sender, instance: Hotel, created, **kwargs):
+    if created:
+        if instance.pms == Hotel.PMSChoices.CHANNEX:
+            instance.adapter.set_up()
+
+
 @receiver(post_save, sender=HotelEmployee, dispatch_uid="pms:post_save_hotel_employee")
-def post_save_hotel_employee(sender, instance, created, **kwargs):
+def post_save_hotel_employee(sender, instance: HotelEmployee, created, **kwargs):
     if instance.hotel and instance.user.is_active is False:
         instance.user.is_active = True
         instance.user.save(update_fields=["is_active"])
 
 
 @receiver(post_save, sender=RatePlan, dispatch_uid="pms:post_save_rate_plan")
-def post_save_rate_plan(sender, instance, created, **kwargs):
+def post_save_rate_plan(sender, instance: RatePlan, created, **kwargs):
     if created:
         rate_plan_restrictions = []
         window = instance.room_type.hotel.inventory_days
@@ -55,7 +63,7 @@ def post_save_rate_plan(sender, instance, created, **kwargs):
 
 
 @receiver(pre_save, sender=Room, dispatch_uid="pms:validate_room")
-def validate_room(sender, instance, **kwargs):
+def validate_room(sender, instance: Room, **kwargs):
     if instance.number < 0:
         raise ValidationError("Room number must be positive")
     if Room.objects.filter(
@@ -69,7 +77,7 @@ def validate_room(sender, instance, **kwargs):
 
 
 @receiver(pre_save, sender=Booking, dispatch_uid="pms:validate_booking")
-def validate_booking(sender, instance, **kwargs):
+def validate_booking(sender, instance: Booking, **kwargs):
     if instance.user.role != User.UserRoleChoices.GUEST:
         raise ValidationError("User must be a guest")
     if instance.start_date >= instance.end_date:

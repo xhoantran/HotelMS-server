@@ -1,12 +1,12 @@
 import uuid
-from typing import Any, Union
+from typing import Any
 
 
 def convert_to_id(
-    obj: Union[Any, uuid.UUID, str, int],
+    obj: Any | uuid.UUID | str | int,
     obj_type: type,
     field_name: str = "id",
-) -> Union[uuid.UUID, str, int]:
+) -> uuid.UUID | str | int:
     if isinstance(obj, obj_type):
         return getattr(obj, field_name)
     elif isinstance(obj, uuid.UUID) or isinstance(obj, str) or isinstance(obj, int):
@@ -16,7 +16,7 @@ def convert_to_id(
 
 
 def convert_to_obj(
-    obj: Union[Any, uuid.UUID, str, int],
+    obj: Any | uuid.UUID | str | int,
     obj_type: type,
     field_name: str = "id",
 ) -> Any:

@@ -1,10 +1,6 @@
-import datetime
-import uuid
-
 from backend.utils.channex_client import ChannexClient
 
-from ..models import RatePlan, RatePlanRestrictions, RoomType
-from ..serializers import RatePlanRestrictionsSerializer
+from ..models import RatePlan, RoomType
 from .base import PMSBaseAdapter
 
 

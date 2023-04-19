@@ -1,6 +1,7 @@
 import uuid
 
 from address.models import AddressField
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
@@ -14,6 +15,15 @@ class Hotel(models.Model):
     address = AddressField(on_delete=models.PROTECT, null=True, blank=True)
     phone = PhoneNumberField(blank=True)
     inventory_days = models.SmallIntegerField(default=100)
+
+    if "backend.rms" in settings.INSTALLED_APPS:
+        hotel_group = models.ForeignKey(
+            "rms.HotelGroup",
+            on_delete=models.PROTECT,
+            related_name="hotels",
+            null=True,
+            blank=True,
+        )
 
     class PMSChoices(models.TextChoices):
         CHANNEX = "CHANNEX", "Channex"

@@ -1,41 +1,15 @@
 import datetime
 import uuid
-from typing import Any, Union
 
 from django.db.models import Q
+from backend.utils.format import convert_to_id, convert_to_obj
 
 from ..models import Hotel, RatePlan, RatePlanRestrictions, RoomType
 
 
 class PMSBaseAdapter:
     def __init__(self, hotel: Hotel | uuid.UUID | str):
-        self.hotel: Hotel = self._covert_to_obj(hotel, Hotel)
-
-    def _convert_to_id(
-        self,
-        obj: Union[Any, uuid.UUID, str, int],
-        obj_type: type,
-        field_name: str = "id",
-    ) -> Union[uuid.UUID, str, int]:
-        if isinstance(obj, obj_type):
-            return getattr(obj, field_name)
-        elif isinstance(obj, uuid.UUID) or isinstance(obj, str) or isinstance(obj, int):
-            return obj
-        else:
-            raise TypeError(f"{obj_type} must be a {obj_type}, UUID, string or integer")
-
-    def _covert_to_obj(
-        self,
-        obj: Union[Any, uuid.UUID, str, int],
-        obj_type: type,
-        field_name: str = "id",
-    ) -> Union[uuid.UUID, str, int]:
-        if isinstance(obj, obj_type):
-            return obj
-        elif isinstance(obj, uuid.UUID) or isinstance(obj, str) or isinstance(obj, int):
-            return obj_type.objects.get(**{field_name: obj})
-        else:
-            raise TypeError(f"{obj_type} must be a {obj_type}, UUID, string or integer")
+        self.hotel: Hotel = convert_to_obj(hotel, Hotel)
 
     def get_room_types(self, *args, **kwargs):
         raise NotImplementedError
@@ -60,7 +34,7 @@ class DefaultPMSAdapter(PMSBaseAdapter):
         query = Q(room_type__hotel=self.hotel)
         if room_type:
             # Validate room type
-            room_type = self._convert_to_id(room_type, RoomType)
+            room_type = convert_to_id(room_type, RoomType)
             query &= Q(room_type_id=room_type)
 
         return RatePlan.objects.filter(query)
@@ -77,7 +51,7 @@ class DefaultPMSAdapter(PMSBaseAdapter):
         query = Q(rate_plan__room_type__hotel=self.hotel)
         if room_type:
             # Validate room type
-            room_type = self._convert_to_id(room_type, RoomType)
+            room_type = convert_to_id(room_type, RoomType)
             query &= Q(rate_plan__room_type_id=room_type)
 
         if date:

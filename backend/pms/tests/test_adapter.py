@@ -1,6 +1,8 @@
 import pytest
 from django.utils import timezone
 
+from backend.utils.format import convert_to_id
+
 from ..adapter import (
     ChannexPMSAdapter,
     DefaultPMSAdapter,
@@ -95,10 +97,10 @@ def test_pms_base_adapter(hotel_factory):
     adapter = PMSBaseAdapter(hotel=hotel.id)
     assert adapter.hotel == hotel
 
-    assert adapter._convert_to_id(hotel.id, type(hotel)) == hotel.id
+    assert convert_to_id(hotel.id, type(hotel)) == hotel.id
 
     with pytest.raises(TypeError):
-        adapter._convert_to_id(object(), type(hotel))
+        convert_to_id(object(), type(hotel))
 
     with pytest.raises(TypeError):
         PMSBaseAdapter(hotel=object())

@@ -10,6 +10,15 @@ from backend.pms.tests.factories import (
     RoomFactory,
     RoomTypeFactory,
 )
+from backend.rms.adapter import DynamicPricingAdapter
+from backend.rms.tests.factories import (
+    AvailabilityBasedTriggerRuleFactory,
+    DynamicPricingSettingFactory,
+    LeadDaysBasedRuleFactory,
+    MonthBasedRuleFactory,
+    SeasonBasedRuleFactory,
+    WeekdayBasedRuleFactory,
+)
 from backend.users.models import User
 from backend.users.tests.factories import SuperAdminFactory, UserFactory
 
@@ -127,3 +136,38 @@ def mocked_channex_validation(mocker):
             ),
         ),
     )
+
+
+@pytest.fixture
+def dynamic_pricing_setting_factory(db) -> DynamicPricingSettingFactory:
+    return DynamicPricingSettingFactory
+
+
+@pytest.fixture
+def weekday_based_rule_factory(db):
+    return WeekdayBasedRuleFactory
+
+
+@pytest.fixture
+def month_based_rule_factory(db):
+    return MonthBasedRuleFactory
+
+
+@pytest.fixture
+def season_based_rule_factory(db):
+    return SeasonBasedRuleFactory
+
+
+@pytest.fixture
+def lead_days_based_rule_factory(db):
+    return LeadDaysBasedRuleFactory
+
+
+@pytest.fixture
+def availability_based_rule_factory(db):
+    return AvailabilityBasedTriggerRuleFactory
+
+
+@pytest.fixture
+def dynamic_pricing_adapter():
+    return DynamicPricingAdapter

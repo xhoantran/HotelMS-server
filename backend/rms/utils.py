@@ -2,12 +2,18 @@ from datetime import date as datetype
 from datetime import datetime
 
 
-def is_within_period(start_date, end_date, date):
+def is_within_period(
+    start_date: datetype,
+    end_date: datetype,
+    date: datetime | datetype | str,
+) -> bool:
     # Convert the strings to datetime objects
     start_date = datetime.strptime(start_date, "%m/%d").date()
     end_date = datetime.strptime(end_date, "%m/%d").date()
-    if not isinstance(date, datetype):
+    if isinstance(date, str):
         date = datetime.strptime(date, "%m/%d/%Y").date()
+    elif isinstance(date, datetime):
+        date = date.date()
 
     # Set the year of the start_date and end_date based on the date's year
     if start_date > end_date:

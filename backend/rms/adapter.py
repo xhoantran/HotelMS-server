@@ -1,9 +1,8 @@
-import uuid
-
 from django.core.cache import cache
 from django.utils import timezone
 
 from backend.pms.models import Hotel, RoomType
+from backend.utils.format import convert_to_obj
 
 from .models import TimeBasedTriggerRule  # noqa F401
 from .models import (
@@ -13,7 +12,6 @@ from .models import (
     MonthBasedRule,
     SeasonBasedRule,
     WeekdayBasedRule,
-    HotelGroup,
 )
 from .utils import is_within_period
 
@@ -26,10 +24,12 @@ class DynamicPricingAdapter:
         Args:
             hotel (Hotel): The hotel to initialize the dynamic pricing adapter for.
         """
-        # if isinstance(hotel, Hotel):
-        #     self.hotel = hotel
-        # elif isinstance(hotel, str):
-
+        try:
+            self.setting: DynamicPricingSetting = DynamicPricingSetting.objects.get(
+                hotel_group__hotels=hotel
+            )
+        except DynamicPricingSetting.DoesNotExist:
+            raise ValueError("Hotel does not belong to a hotel group")
         self.load_from_cache()
 
     def load_from_db(self: str):
@@ -39,6 +39,7 @@ class DynamicPricingAdapter:
         Returns:
             DynamicPricingAdapter: The dynamic pricing adapter.
         """
+        self.setting = DynamicPricingSetting.objects.get(pk=self.setting.id)
         self.is_enabled = self.setting.is_enabled
         # Lead days based rules
         self.is_lead_days_based = self.setting.is_lead_days_based
@@ -104,9 +105,6 @@ class DynamicPricingAdapter:
             )
         else:
             self.availability_based_trigger_rules = []
-        # Room type base rates
-        self.room_type_base_rates = self.ari_adapter.get_room_type_base_rates(self)
-        return self
 
     def get_cache_key(self: str) -> str:
         """
@@ -146,8 +144,6 @@ class DynamicPricingAdapter:
                 # Availability based trigger rules
                 "is_availability_based": self.setting.is_availability_based,
                 "availability_based_trigger_rules": self.availability_based_trigger_rules,
-                # Room type base rates
-                "room_type_base_rates": self.room_type_base_rates,
             },
             timeout=None if self.setting.is_lead_days_based else None,
         )
@@ -159,10 +155,9 @@ class DynamicPricingAdapter:
         Returns:
             DynamicPricingAdapter: The dynamic pricing adapter.
         """
-
         ret = cache.get(self.get_cache_key())
         if ret is None:
-            ret = self.load_from_db()
+            self.load_from_db()
             self.save_to_cache()
         else:
             self.is_enabled = ret["is_enabled"]
@@ -183,46 +178,8 @@ class DynamicPricingAdapter:
             self.availability_based_trigger_rules = ret[
                 "availability_based_trigger_rules"
             ]
-            # Room type base rates
-            self.room_type_base_rates = ret["room_type_base_rates"]
 
-    def _get_availability_based_factor(self, availability):
-        """
-        Get the availability based multiplier factor for a given availability.
-
-        Args:
-            availability (int): The availability to get the availability based multiplier factor for.
-
-        Returns:
-            float: The availability based multiplier factor for the given availability.
-        """
-        for i in range(len(self.availability_based_trigger_rules)):
-            if (
-                availability
-                <= self.availability_based_trigger_rules[i]["max_availability"]
-            ):
-                return self.availability_based_trigger_rules[i]["multiplier_factor"]
-        return 1
-
-    def get_room_type_availability_based_factor(
-        self, room_type: RoomType | str | uuid.UUID, date
-    ):
-        """
-        Get the availability based multiplier factor for a given room type and date.
-
-        Args:
-            room_type (RoomType | str | uuid.UUID): The room type to get the availability based multiplier factor for.
-            date (date): The date to get the availability based multiplier factor for.
-
-        Returns:
-            float: The availability based multiplier factor for the given room type and date.
-        """
-        if not self.is_availability_based:
-            return 1
-        availability = self.ari_adapter.get_number_of_available_rooms(room_type, date)
-        return self._get_availability_based_factor(availability)
-
-    def get_lead_days_based_factor(self, date):
+    def get_lead_days_based_factor(self, date: timezone.datetime.date) -> float:
         """
         Get the lead time based multiplier factor for a given room type and date.
 
@@ -242,7 +199,7 @@ class DynamicPricingAdapter:
             return self.lead_days_based_rules[-1]
         return self.lead_days_based_rules[lead_days]
 
-    def get_weekday_based_factor(self, date):
+    def get_weekday_based_factor(self, date: timezone.datetime.date) -> float:
         """
         Get the weekday based multiplier factor for a given date.
 
@@ -254,9 +211,9 @@ class DynamicPricingAdapter:
         """
         if not self.is_weekday_based:
             return 1
-        return self.weekday_based_rules[date.weekday()]
+        return self.weekday_based_rules[date.weekday() - 1]
 
-    def get_month_based_factor(self, date):
+    def get_month_based_factor(self, date: timezone.datetime.date) -> float:
         """
         Get the month based multiplier factor for a given date.
 
@@ -270,7 +227,7 @@ class DynamicPricingAdapter:
             return 1
         return self.month_based_rules[date.month - 1]
 
-    def get_season_based_factor(self, date):
+    def get_season_based_factor(self, date: timezone.datetime.date) -> float:
         """
         Get the season based multiplier factor for a given date.
 
@@ -288,27 +245,25 @@ class DynamicPricingAdapter:
                 ret = ret * rule["multiplier_factor"]
         return ret
 
-    # This method is used for our own pms only.
-    def get_room_type_base_rate(self, room_type):
+    def get_availability_based_factor(self, availability):
         """
-        Get the base rate for a given room type.
+        Get the availability based multiplier factor for a given availability.
 
         Args:
-            room_type (RoomType or uuid): The room type to get the base rate for.
+            availability (int): The availability to get the availability based multiplier factor for.
 
         Returns:
-            float: The base rate for the given room type.
+            float: The availability based multiplier factor for the given availability.
         """
-        if isinstance(room_type, RoomType):
-            room_type = room_type.id
-        return next(
-            item["base_rate"]
-            for item in self.room_type_base_rates
-            if item["id"] == room_type
-        )
+        for i in range(len(self.availability_based_trigger_rules)):
+            if (
+                availability
+                <= self.availability_based_trigger_rules[i]["max_availability"]
+            ):
+                return self.availability_based_trigger_rules[i]["multiplier_factor"]
+        return 1
 
-    # This method is used for our own pms only.
-    def calculate_rate(self, room_type, date):
+    def calculate_rate(self, base_rate, date, availability):
         """
         Calculate the rate of a room for a given date.
 
@@ -319,14 +274,11 @@ class DynamicPricingAdapter:
         Returns:
             float: The rate of the room for the given date.
         """
-        base_rate = self.get_room_type_base_rate(room_type)
         lead_days_based_factor = self.get_lead_days_based_factor(date)
         week_day_based_factor = self.get_weekday_based_factor(date)
         month_based_factor = self.get_month_based_factor(date)
         season_based_factor = self.get_season_based_factor(date)
-        availability_based_factor = self.get_room_type_availability_based_factor(
-            room_type, date
-        )
+        availability_based_factor = self.get_availability_based_factor(availability)
         val = (
             base_rate
             * lead_days_based_factor
@@ -336,40 +288,3 @@ class DynamicPricingAdapter:
             * availability_based_factor
         )
         return val
-
-    def calculate_rate_on_availability_trigger(
-        self, room_type, date, availability
-    ) -> tuple[list, bool]:
-        """
-        Calculate the rate of a room for a given date when the availability trigger is hit.
-
-        Args:
-            room_type (RoomType): The room type to calculate the rate for.
-            date (date): The date to calculate the rate for.
-
-        Returns:
-            list[{"rate_plan_id": str, "rate": int}]: The rate plans to update.
-            bool: Whether the rate plans need to be updated.
-        """
-        # TODO: Should check if the availability is changed or not.
-        previous_factor = self._get_availability_based_factor(availability + 1)
-        current_factor = self._get_availability_based_factor(availability)
-        if previous_factor == current_factor:
-            return [], False
-
-        # If the factor has changed, we need to update the rate plans.
-        current_rate_plans = self.ari_adapter.get_room_type_rate_plans_on_date(
-            room_type, date
-        )
-        new_rate_plans = []
-        for rate_plan in current_rate_plans:
-            new_rate = int(
-                float(rate_plan.get("rate"))
-                * float(current_factor)
-                / float(previous_factor)
-                * 100
-            )
-            new_rate_plans.append(
-                {"rate_plan_id": rate_plan.get("rate_plan_id"), "rate": new_rate}
-            )
-        return new_rate_plans, True

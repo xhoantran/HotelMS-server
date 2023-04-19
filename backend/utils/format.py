@@ -19,7 +19,7 @@ def convert_to_obj(
     obj: Union[Any, uuid.UUID, str, int],
     obj_type: type,
     field_name: str = "id",
-) -> Union[uuid.UUID, str, int]:
+) -> Any:
     if isinstance(obj, obj_type):
         return obj
     elif isinstance(obj, uuid.UUID) or isinstance(obj, str) or isinstance(obj, int):

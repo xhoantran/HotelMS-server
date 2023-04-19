@@ -3,11 +3,7 @@ from datetime import datetime
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from backend.pms.models import Hotel
-
-
-class HotelGroup(models.Model):
-    name = models.CharField(max_length=255)
+from backend.pms.models import HotelGroup
 
 
 class DynamicPricingSetting(models.Model):
@@ -17,13 +13,18 @@ class DynamicPricingSetting(models.Model):
         related_name="dynamic_pricing_setting",
     )
     is_enabled = models.BooleanField(default=True)
-    is_lead_days_based = models.BooleanField(default=True)
+    is_lead_days_based = models.BooleanField(default=False)
     lead_day_window = models.SmallIntegerField(default=60)
-    is_weekday_based = models.BooleanField(default=True)
-    is_month_based = models.BooleanField(default=True)
-    is_season_based = models.BooleanField(default=True)
-    is_availability_based = models.BooleanField(default=True)
-    is_time_based = models.BooleanField(default=True)
+    is_weekday_based = models.BooleanField(default=False)
+    is_month_based = models.BooleanField(default=False)
+    is_season_based = models.BooleanField(default=False)
+    is_availability_based = models.BooleanField(default=False)
+    is_time_based = models.BooleanField(default=False)
+
+    # def save(self, *args, **kwargs):
+    #     if self.lead_day_window < 35 or self.lead_day_window > 365:
+    #         raise ValueError("Invalid lead day window")
+    #     super().save(*args, **kwargs)
 
 
 class LeadDaysBasedRule(models.Model):

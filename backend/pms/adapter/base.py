@@ -20,6 +20,9 @@ class PMSBaseAdapter:
     def get_room_type_rate_plan_restrictions(self, *args, **kwargs):
         raise NotImplementedError
 
+    def get_room_type_rate_plan_availability(self, *args, **kwargs):
+        raise NotImplementedError
+
 
 class DefaultPMSAdapter(PMSBaseAdapter):
     def get_room_types(self, *args, **kwargs):

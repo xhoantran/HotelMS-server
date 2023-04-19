@@ -6,6 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from backend.pms.tests.factories import (
     BookingFactory,
     HotelFactory,
+    HotelGroupFactory,
     RatePlanFactory,
     RoomFactory,
     RoomTypeFactory,
@@ -139,35 +140,35 @@ def mocked_channex_validation(mocker):
 
 
 @pytest.fixture
+def hotel_group_factory(db) -> HotelGroupFactory:
+    return HotelGroupFactory
+
+
+@pytest.fixture
 def dynamic_pricing_setting_factory(db) -> DynamicPricingSettingFactory:
     return DynamicPricingSettingFactory
 
 
 @pytest.fixture
-def weekday_based_rule_factory(db):
+def weekday_based_rule_factory(db) -> WeekdayBasedRuleFactory:
     return WeekdayBasedRuleFactory
 
 
 @pytest.fixture
-def month_based_rule_factory(db):
+def month_based_rule_factory(db) -> MonthBasedRuleFactory:
     return MonthBasedRuleFactory
 
 
 @pytest.fixture
-def season_based_rule_factory(db):
+def season_based_rule_factory(db) -> SeasonBasedRuleFactory:
     return SeasonBasedRuleFactory
 
 
 @pytest.fixture
-def lead_days_based_rule_factory(db):
+def lead_days_based_rule_factory(db) -> LeadDaysBasedRuleFactory:
     return LeadDaysBasedRuleFactory
 
 
 @pytest.fixture
-def availability_based_rule_factory(db):
+def availability_based_rule_factory(db) -> AvailabilityBasedTriggerRuleFactory:
     return AvailabilityBasedTriggerRuleFactory
-
-
-@pytest.fixture
-def dynamic_pricing_adapter():
-    return DynamicPricingAdapter

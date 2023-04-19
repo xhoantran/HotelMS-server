@@ -11,7 +11,6 @@ from backend.pms.tests.factories import (
     RoomFactory,
     RoomTypeFactory,
 )
-from backend.rms.adapter import DynamicPricingAdapter
 from backend.rms.tests.factories import (
     AvailabilityBasedTriggerRuleFactory,
     DynamicPricingSettingFactory,

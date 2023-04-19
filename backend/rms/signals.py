@@ -3,10 +3,10 @@ from django.dispatch import receiver
 
 from .models import (
     DynamicPricingSetting,
+    HotelGroup,
     LeadDaysBasedRule,
     MonthBasedRule,
     WeekdayBasedRule,
-    HotelGroup,
 )
 
 

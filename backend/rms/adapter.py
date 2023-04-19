@@ -1,8 +1,7 @@
 from django.core.cache import cache
 from django.utils import timezone
 
-from backend.pms.models import Hotel, RoomType
-from backend.utils.format import convert_to_obj
+from backend.pms.models import Hotel
 
 from .models import TimeBasedTriggerRule  # noqa F401
 from .models import (

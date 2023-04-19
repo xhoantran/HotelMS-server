@@ -2,6 +2,7 @@ import datetime
 import uuid
 
 from django.db.models import Q
+
 from backend.utils.format import convert_to_id, convert_to_obj
 
 from ..models import Hotel, RatePlan, RatePlanRestrictions, RoomType

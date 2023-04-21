@@ -1,6 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+from .adapter import DynamicPricingAdapter
 from .models import (
     DynamicPricingSetting,
     HotelGroup,
@@ -34,3 +35,15 @@ def post_save_hotel_group(sender, instance: HotelGroup, created, **kwargs):
         for i in range(12):
             month_based_rules.append(MonthBasedRule(setting=setting, month=i + 1))
         MonthBasedRule.objects.bulk_create(month_based_rules)
+
+
+@receiver(
+    post_save,
+    sender=DynamicPricingSetting,
+    dispatch_uid="rms:post_save_dynamic_pricing_setting",
+)
+def post_save_dynamic_pricing_setting(
+    sender, instance: DynamicPricingSetting, created, **kwargs
+):
+    if not created:
+        DynamicPricingAdapter(setting=instance).invalidate_cache()

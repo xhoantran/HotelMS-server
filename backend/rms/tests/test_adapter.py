@@ -160,7 +160,6 @@ def test_dynamic_pricing_adapter_weekday_based(
     # Load from db
     adapter.load_from_db()
     assert adapter.is_weekday_based
-    print(adapter.weekday_based_rules)
     assert len(adapter.weekday_based_rules) == 7
     assert adapter.get_weekday_based_factor(timezone.now()) == Decimal("1.1")
 

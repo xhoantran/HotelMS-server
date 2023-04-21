@@ -38,7 +38,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         callback_url: str,
     ):
         response = self.client.create_webhook(
-            property_id=self.hotel.pms_id,
+            property_id=str(self.hotel.pms_id),
             callback_url=callback_url,
             event_mask=f"ari:availability:{room_type_pms_id}:*",
             request_params={"room_type_uuid": room_type_uuid},
@@ -94,10 +94,10 @@ class ChannexPMSAdapter(PMSBaseAdapter):
 
                 # Set up room type webhook
                 self._set_up_room_type_webhook(
-                    room_type.uuid,
-                    room_type.pms_id,
-                    api_key,
-                    f"https://{current_site.domain}{reverse('pms:channex-availability-callback')}",
+                    room_type_uuid=str(room_type.uuid),
+                    room_type_pms_id=str(room_type.pms_id),
+                    api_key=api_key,
+                    callback_url=f"https://{current_site.domain}{reverse('pms:channex-availability-callback')}",
                 )
 
             # Create rate plans
@@ -195,7 +195,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
 
         # Get data from Channex
         response = self.client.get_room_type_rate_plan_restrictions(
-            property_id=self.hotel.pms_id,
+            property_pms_id=self.hotel.pms_id,
             date_from=date_range[0],
             date_to=date_range[-1],
             restrictions=["rate", "availability"],
@@ -231,7 +231,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                 if new_rate != original_rate:
                     restriction_update_to_channex.append(
                         {
-                            "property_id": self.hotel.pms_id,
+                            "property_id": str(self.hotel.pms_id),
                             "rate_plan_id": rate_plan_pms_id,
                             "date": date,
                             "rate": new_rate,
@@ -250,7 +250,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
 
         return restriction_update_to_channex, restriction_create_to_db
 
-    def handle_trigger(self, room_type_uuid: str, payload: dict):
+    def handle_trigger(self, room_type_uuid: str, payload: dict) -> bool:
         (
             restriction_update_to_channex,
             restriction_create_to_db,
@@ -266,3 +266,6 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             if response.status_code != 200:
                 raise Exception(response.json())
             RatePlanRestrictions.objects.bulk_create(restriction_create_to_db)
+            return True
+
+        return False

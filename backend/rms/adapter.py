@@ -19,19 +19,27 @@ from .utils import is_within_period
 
 
 class DynamicPricingAdapter:
-    def __init__(self, hotel: Hotel | str | int):
+    def __init__(
+        self, hotel: Hotel | str | int = None, setting: DynamicPricingSetting = None
+    ):
         """
         Initialize the dynamic pricing adapter.
 
         Args:
             hotel (Hotel): The hotel to initialize the dynamic pricing adapter for.
         """
-        try:
-            self.setting: DynamicPricingSetting = DynamicPricingSetting.objects.get(
-                hotel_group__hotels=hotel
-            )
-        except DynamicPricingSetting.DoesNotExist:
-            raise ValueError("Hotel does not belong to a hotel group")
+        if isinstance(setting, DynamicPricingSetting):
+            self.setting = setting
+
+        elif isinstance(hotel, Hotel):
+            try:
+                self.setting: DynamicPricingSetting = DynamicPricingSetting.objects.get(
+                    hotel_group__hotels=hotel
+                )
+            except DynamicPricingSetting.DoesNotExist:
+                raise ValueError("Hotel does not belong to a hotel group")
+        else:
+            raise ValueError("Must provide either a hotel or a setting")
         self.load_from_cache()
 
     def load_from_db(self: str):
@@ -289,13 +297,6 @@ class DynamicPricingAdapter:
         month_based_factor = self.get_month_based_factor(date)
         season_based_factor = self.get_season_based_factor(date)
         availability_based_factor = self.get_availability_based_factor(availability)
-        print(
-            date,
-            rate,
-            availability,
-            availability_based_factor,
-            self.availability_based_trigger_rules,
-        )
         return math.ceil(
             (rate + availability_based_factor)
             * lead_days_based_factor

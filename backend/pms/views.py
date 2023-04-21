@@ -68,13 +68,17 @@ class ChannexAvailabilityCallbackAPIView(generics.GenericAPIView):
             if request.data.get("event") != "ari":
                 return response.Response(status=400)
 
-            # Check user_id is None
-            if request.data.get("user_id", None):
-                adapter.handle_trigger(room_type_uuid, request.data.get("payload"))
-                return response.Response(status=200)
+            # If user_id is present, it means that the request is triggered
+            # by a manual action in the Channex dashboard.
+            if request.data.get("user_id", True):
+                return response.Response(
+                    status=200, data={"status": "Ignore manual trigger"}
+                )
 
-            return response.Response(
-                status=200, data={"status": "Ignore manual trigger"}
-            )
+            adapter.handle_trigger(room_type_uuid, request.data.get("payload"))
+            return response.Response(status=200)
+
         except HotelAPIKey.DoesNotExist:
             return response.Response(status=401)
+        except Exception as e:
+            return response.Response(status=500, data={"error": str(e)})

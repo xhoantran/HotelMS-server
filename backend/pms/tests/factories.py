@@ -27,8 +27,6 @@ class HotelGroupFactory(DjangoModelFactory):
 
 class HotelFactory(DjangoModelFactory):
     name = Faker("company")
-    address = Faker("address")
-    phone = Faker("phone_number")
     inventory_days = Faker("pyint", min_value=100, max_value=700)
     group = SubFactory(HotelGroupFactory)
 

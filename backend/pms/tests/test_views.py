@@ -1,7 +1,10 @@
 import pytest
 from django.urls import reverse
+from django.utils.http import urlencode
 from rest_framework import status
+from rest_framework.test import APIClient
 
+from ..models import HotelAPIKey
 from .factories import HotelFactory, RoomFactory, RoomTypeFactory
 
 
@@ -159,3 +162,40 @@ def test_room_model_view_set_manager_create(manager, get_api_client):
         },
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_channex_availability_callback_api_view(
+    db,
+    mocked_channex_validation,
+    hotel_factory,
+    room_type_factory,
+):
+    hotel = hotel_factory(channex=True)
+    room_type = room_type_factory(hotel=hotel)
+    HotelAPIKey.objects.get(hotel=hotel).delete()
+    _, key = HotelAPIKey.objects.create_key(hotel=hotel, name="test")
+
+    url = reverse("pms:channex-availability-callback")
+    url = f"{url}?{urlencode({'room_type_uuid': room_type.uuid})}"
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Api-Key {key}")
+    response = client.post(
+        url,
+        {"event": "ari", "payload": [], "user_id": None},
+        format="json",
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    response = client.post(
+        url,
+        {"event": "booking", "payload": [], "user_id": None},
+        format="json",
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    response = client.post(
+        url,
+        {"event": "ari", "payload": [], "user_id": "test"},
+        format="json",
+    )
+    assert response.status_code == status.HTTP_200_OK

@@ -3,6 +3,7 @@ from collections.abc import Iterator
 
 import requests
 from django.conf import settings
+from django.core.mail import mail_admins
 
 CHANNEX_BASE_URL = getattr(
     settings,
@@ -146,4 +147,8 @@ class ChannexClient:
         return self._get("restrictions/", params=params)
 
     def update_room_type_rate_plan_restrictions(self, data: Iterator[dict]):
-        return self._post("restrictions", data={"values": data})
+        # return self._post("restrictions", data={"values": data})
+        mail_admins(
+            "ChannexClient.update_room_type_rate_plan_restrictions",
+            f"Data: {data}",
+        )

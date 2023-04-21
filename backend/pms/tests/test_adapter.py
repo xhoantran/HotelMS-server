@@ -11,7 +11,7 @@ from ..adapter import (
     PMSBaseAdapter,
     RoomTypeAdapter,
 )
-from ..models import RatePlan, RoomType, RatePlanRestrictions
+from ..models import RatePlan, RatePlanRestrictions, RoomType
 
 
 class TestRoomTypeAdapter:
@@ -414,7 +414,7 @@ class TestChannexPMSAdapter:
         ]
         assert len(restriction_create_to_db) == 2
 
-    def test_handle_trigger(
+    def testhandle_trigger(
         self,
         mocked_channex_validation,
         mocker,
@@ -443,7 +443,7 @@ class TestChannexPMSAdapter:
             "backend.utils.channex_client.ChannexClient.update_room_type_rate_plan_restrictions",
             return_value=mocker.Mock(status_code=200),
         )
-        adapter._handle_trigger(
+        adapter.handle_trigger(
             room_type_uuid=uuid.uuid4(),
             payload=[],
         )
@@ -453,7 +453,7 @@ class TestChannexPMSAdapter:
         )
 
         with pytest.raises(Exception):
-            adapter._handle_trigger(
+            adapter.handle_trigger(
                 room_type_uuid=uuid.uuid4(),
                 payload=[],
             )

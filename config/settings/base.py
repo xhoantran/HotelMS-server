@@ -88,15 +88,12 @@ THIRD_PARTY_APPS = [
     "rest_framework_api_key",
     "corsheaders",
     "drf_spectacular",
-    # Custom fields/models
-    "address",
-    "phonenumber_field",
 ]
 
 LOCAL_APPS = [
     "backend.users",
-    "backend.pms",
     "backend.rms",
+    "backend.pms",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -239,7 +236,7 @@ EMAIL_TIMEOUT = 5
 # Django Admin URL.
 ADMIN_URL = "admin/"
 # https://docs.djangoproject.com/en/dev/ref/settings/#admins
-ADMINS = [("""Hoan Tran""", "noreply@xhoantran.com")]
+ADMINS = [("""Hoan Tran""", "noreply@pms.xhoantran.com")]
 # https://docs.djangoproject.com/en/dev/ref/settings/#managers
 MANAGERS = ADMINS
 
@@ -348,8 +345,3 @@ REST_AUTH = {
     "USE_JWT": True,
     "JWT_AUTH_HTTPONLY": False,
 }
-
-
-# djangorestframework-api-key
-# https://florimondmanca.github.io/djangorestframework-api-key/guide/#api-key-custom-keyword
-API_KEY_CUSTOM_HEADER = "HTTP_X_API_KEY"

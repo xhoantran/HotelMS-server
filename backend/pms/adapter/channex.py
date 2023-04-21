@@ -1,4 +1,6 @@
+from django.contrib.sites.models import Site
 from django.db.models import Prefetch
+from django.urls import reverse
 from django.utils import timezone
 
 from backend.rms.adapter import DynamicPricingAdapter
@@ -28,18 +30,24 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         response = client.get_property(pms_id)
         return response.status_code == 200
 
-    def _set_up_room_type_webhook(self, room_type_id: str, room_type_pms_id: str):
+    def _set_up_room_type_webhook(
+        self,
+        room_type_uuid: str,
+        room_type_pms_id: str,
+        api_key: str,
+        callback_url: str,
+    ):
         response = self.client.create_webhook(
             property_id=self.hotel.pms_id,
-            callback_url="https://example.com",  # TODO: Add webhook url
+            callback_url=callback_url,
             event_mask=f"ari:availability:{room_type_pms_id}:*",
-            request_params={"room_type_id": room_type_id},
-            headers={},  # TODO: Add headers
+            request_params={"room_type_uuid": room_type_uuid},
+            headers={"Api-Key": api_key},
         )
         if response.status_code != 201:
             raise Exception(response.json())
 
-    def sync_up(self):
+    def sync_up(self, api_key: str):
         # Get properties
         response = self.client.get_property(self.hotel.pms_id)
         if response.status_code != 200:
@@ -78,13 +86,19 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                     pms_id__in=room_type_pms_ids, hotel=self.hotel
                 )
 
+            current_site = Site.objects.get_current()
             room_type_id_map = {}
             for room_type in room_types:
                 # Create room type id map
                 room_type_id_map[str(room_type.pms_id)] = room_type.id
 
                 # Set up room type webhook
-                self._set_up_room_type_webhook(room_type.id, room_type.pms_id)
+                self._set_up_room_type_webhook(
+                    room_type.uuid,
+                    room_type.pms_id,
+                    api_key,
+                    f"https://{current_site.domain}{reverse('pms:channex-availability-callback')}",
+                )
 
             # Create rate plans
             rate_plan_objects = []
@@ -236,11 +250,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
 
         return restriction_update_to_channex, restriction_create_to_db
 
-    def _handle_trigger(
-        self,
-        room_type_uuid: str,
-        payload: dict,
-    ):
+    def handle_trigger(self, room_type_uuid: str, payload: dict):
         (
             restriction_update_to_channex,
             restriction_create_to_db,
@@ -255,5 +265,4 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             )
             if response.status_code != 200:
                 raise Exception(response.json())
-
             RatePlanRestrictions.objects.bulk_create(restriction_create_to_db)

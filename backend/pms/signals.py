@@ -8,6 +8,7 @@ from django.utils import timezone
 from backend.pms.models import (
     Booking,
     Hotel,
+    HotelAPIKey,
     HotelEmployee,
     RatePlan,
     RatePlanRestrictions,
@@ -36,7 +37,8 @@ def post_save_user(sender, instance, created, **kwargs):
 def post_save_hotel(sender, instance: Hotel, created, **kwargs):
     if created:
         if instance.pms != Hotel.PMSChoices.__empty__:
-            instance.adapter.sync_up()
+            _, api_key = HotelAPIKey.objects.create_key(hotel=instance, name="API Key")
+            instance.adapter.sync_up(api_key=api_key)
 
 
 @receiver(post_save, sender=HotelEmployee, dispatch_uid="pms:post_save_hotel_employee")

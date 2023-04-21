@@ -25,10 +25,6 @@ djangorestframework-api-key==2.3.0  # https://github.com/florimondmanca/djangore
 # DRF-spectacular for api documentation
 drf-spectacular==0.26.2  # https://github.com/tfranzel/drf-spectacular
 
-# Custom models/fields
-django-address==0.2.8  # https://github.com/furious-luke/django-address
-django-phonenumber-field[phonenumbers]==7.0.2  # https://github.com/stefanfoulis/django-phonenumber-field
-
 
 # Planner Optimization
 # ------------------------------------------------------------------------------

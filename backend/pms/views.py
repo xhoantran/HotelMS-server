@@ -1,10 +1,12 @@
 from django.contrib.auth import get_user_model
-from rest_framework import response, viewsets
+from rest_framework import generics, response, viewsets
 from rest_framework.decorators import action
 
 from backend.users.permissions import IsAdmin, IsEmployee, IsManager
 
-from .models import Hotel, HotelEmployee, Room, RoomType
+from .adapter import ChannexPMSAdapter
+from .models import Hotel, HotelAPIKey, HotelEmployee, Room, RoomType
+from .permissions import HasHotelAPIKey
 from .serializers import (
     HotelEmployeeSerializer,
     HotelSerializer,
@@ -51,3 +53,28 @@ class RoomModelViewSet(viewsets.ModelViewSet):
         if self.request.user.role == User.UserRoleChoices.ADMIN:
             return Room.objects.all()
         return Room.objects.filter(hotel=self.request.user.hotel_employee.hotel)
+
+
+class ChannexAvailabilityCallbackAPIView(generics.GenericAPIView):
+    permission_classes = [HasHotelAPIKey]
+
+    def post(self, request, *args, **kwargs):
+        key = request.META["HTTP_AUTHORIZATION"].split()[1]
+        try:
+            hotel = HotelAPIKey.objects.get_from_key(key=key).hotel
+            adapter = ChannexPMSAdapter(hotel)
+            room_type_uuid = request.GET.get("room_type_uuid")
+
+            if request.data.get("event") != "ari":
+                return response.Response(status=400)
+
+            # Check user_id is None
+            if request.data.get("user_id", None):
+                adapter.handle_trigger(room_type_uuid, request.data.get("payload"))
+                return response.Response(status=200)
+
+            return response.Response(
+                status=200, data={"status": "Ignore manual trigger"}
+            )
+        except HotelAPIKey.DoesNotExist:
+            return response.Response(status=401)

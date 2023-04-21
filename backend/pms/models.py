@@ -1,9 +1,8 @@
 import uuid
 
-from address.models import AddressField
 from django.contrib.auth import get_user_model
 from django.db import models
-from phonenumber_field.modelfields import PhoneNumberField
+from rest_framework_api_key.models import AbstractAPIKey
 
 User = get_user_model()
 
@@ -15,8 +14,6 @@ class HotelGroup(models.Model):
 class Hotel(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     name = models.CharField(max_length=255)
-    address = AddressField(on_delete=models.PROTECT, null=True, blank=True)
-    phone = PhoneNumberField(blank=True)
     inventory_days = models.SmallIntegerField(default=100)
     group = models.ForeignKey(
         HotelGroup,
@@ -71,6 +68,14 @@ class Hotel(models.Model):
             raise ValueError("Inventory days must be between 100 and 700")
         self.validate_pms()
         super().save(*args, **kwargs)
+
+
+class HotelAPIKey(AbstractAPIKey):
+    hotel = models.OneToOneField(
+        Hotel,
+        on_delete=models.CASCADE,
+        related_name="api_key",
+    )
 
 
 class HotelEmployee(models.Model):

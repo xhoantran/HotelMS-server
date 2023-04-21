@@ -25,8 +25,8 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         return response.status_code == 200
 
     @staticmethod
-    def validate_pms_id(pms_id: str):
-        client = ChannexClient(api_key=pms_id)
+    def validate_pms_id(api_key: str, pms_id: str):
+        client = ChannexClient(api_key=api_key)
         response = client.get_property(pms_id)
         return response.status_code == 200
 

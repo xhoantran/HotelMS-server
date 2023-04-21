@@ -60,7 +60,7 @@ class Hotel(models.Model):
                 )
             if not self.adapter.validate_api_key(self.pms_api_key):
                 raise ValueError("Invalid API Key")
-            if not self.adapter.validate_pms_id(self.pms_id):
+            if not self.adapter.validate_pms_id(self.pms_api_key, self.pms_id):
                 raise ValueError("Invalid external ID")
 
     def save(self, *args, **kwargs):

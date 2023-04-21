@@ -114,13 +114,14 @@ class ChannexClient:
         return self._get(f"room_types/{room_type_id}")
 
     def get_rate_plans(self, property_id, room_type_id=None, options: bool = True):
+        params = {}
+        params["filter[property_id]"] = property_id
+        if room_type_id:
+            params["filter[room_type_id]"] = room_type_id
+
         if options:
-            return self._get(
-                f"rate_plans/options?filter[property_id]={property_id}&filter[room_type_id]={room_type_id}"
-            )
-        return self._get(
-            f"rate_plans/?filter[property_id]={property_id}&filter[room_type_id]={room_type_id}"
-        )
+            return self._get("rate_plans/options", params=params)
+        return self._get("rate_plans/", params=params)
 
     def get_rate_plan(self, rate_plan_id):
         return self._get(f"rate_plans/{rate_plan_id}")

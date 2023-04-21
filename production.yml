@@ -12,9 +12,9 @@ services:
       dockerfile: ./compose/production/django/Dockerfile
 
     image: backend_production_django
-    depends_on:
-      # - postgres
-      - redis
+    # depends_on:
+    #   - postgres
+    #   - redis
     env_file:
       - ./.envs/.production/.django
       - ./.envs/.production/.postgres
@@ -45,8 +45,8 @@ services:
       - "0.0.0.0:443:443"
       - "0.0.0.0:5555:5555"
 
-  redis:
-    image: redis:6
+  # redis:
+  #   image: redis:6
 
   celeryworker:
     <<: *django
@@ -63,11 +63,11 @@ services:
     image: backend_production_flower
     command: /start-flower
 
-  awscli:
-    build:
-      context: .
-      dockerfile: ./compose/production/aws/Dockerfile
-    env_file:
-      - ./.envs/.production/.django
-    volumes:
-      - production_postgres_data_backups:/backups:z
+  # awscli:
+  #   build:
+  #     context: .
+  #     dockerfile: ./compose/production/aws/Dockerfile
+  #   env_file:
+  #     - ./.envs/.production/.django
+  #   volumes:
+  #     - production_postgres_data_backups:/backups:z

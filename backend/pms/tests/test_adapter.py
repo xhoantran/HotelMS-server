@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from django.utils import timezone
 
@@ -9,7 +11,7 @@ from ..adapter import (
     PMSBaseAdapter,
     RoomTypeAdapter,
 )
-from ..models import RatePlan, RoomType
+from ..models import RatePlan, RoomType, RatePlanRestrictions
 
 
 class TestRoomTypeAdapter:
@@ -111,9 +113,6 @@ def test_pms_base_adapter(hotel_factory):
     with pytest.raises(NotImplementedError):
         adapter.get_room_types()
 
-    with pytest.raises(NotImplementedError):
-        adapter.get_room_type_rate_plan_restrictions()
-
 
 class TestDefaultPMSAdapter:
     def test_get_rate_plans(self, hotel_factory, room_type_factory, rate_plan_factory):
@@ -130,33 +129,6 @@ class TestDefaultPMSAdapter:
         room_type_factory.create_batch(2, hotel=hotel)
         adapter = DefaultPMSAdapter(hotel)
         assert adapter.get_room_types().count() == 2
-
-    def test_get_room_type_rate_plan_restrictions(
-        self,
-        hotel_factory,
-        room_type_factory,
-        rate_plan_factory,
-    ):
-        hotel = hotel_factory()
-        room_type = room_type_factory(hotel=hotel)
-        rate_plan_factory(room_type=room_type)
-        adapter = DefaultPMSAdapter(hotel)
-        assert (
-            adapter.get_room_type_rate_plan_restrictions(
-                room_type=room_type, date=timezone.now()
-            ).count()
-            == 1
-        )
-        assert (
-            adapter.get_room_type_rate_plan_restrictions(
-                room_type=room_type.id,
-                date_from=timezone.now(),
-                date_to=timezone.now() + timezone.timedelta(days=20),
-            ).count()
-            == 21
-        )
-        with pytest.raises(ValueError):
-            adapter.get_room_type_rate_plan_restrictions(room_type=room_type.id)
 
 
 class TestChannexPMSAdapter:
@@ -235,41 +207,253 @@ class TestChannexPMSAdapter:
         with pytest.raises(Exception):
             ChannexPMSAdapter(hotel).sync_up()
 
-    # def test_get_room_type_rate_plan_restrictions(
-    #     self,
-    #     mocker,
-    #     hotel_factory,
-    #     room_type_factory,
-    # ):
-    #     hotel = hotel_factory(channex=True)
-    #     room_type = room_type_factory(hotel=hotel)
-    #     adapter = ChannexPMSAdapter(hotel)
-    #     mocker.patch(
-    #         "backend.utils.channex_client.ChannexClient.get_room_type_rate_plan_restrictions",
-    #         return_value=mocker.Mock(
-    #             status_code=200,
-    #             json=mocker.Mock(
-    #                 return_value={
-    #                     "data": {
-    #                         "0c9a0fba-71f3-4da4-af98-f9f036923dd8": {
-    #                             "2023-04-17": {"rate": "1000000"},
-    #                         },
-    #                         "90b1373c-dcf0-46be-a440-d7ac525967a3": {
-    #                             "2023-04-17": {"rate": "1000000"},
-    #                         },
-    #                         "dd1e2ead-b503-4289-a57e-ad51184fafbe": {
-    #                             "2023-04-17": {"rate": "0"},
-    #                         },
-    #                     }
-    #                 }
-    #             ),
-    #         ),
-    #     )
-    #     assert (
-    #         len(
-    #             adapter.get_room_type_rate_plan_restrictions(
-    #                 room_type=room_type, date="2023-04-17"
-    #             )
-    #         )
-    #         == 3
-    #     )
+    def test_get_synced_rate_plans_restrictions(
+        self,
+        mocked_channex_validation,
+        hotel_factory,
+        room_type_factory,
+        rate_plan_factory,
+        rate_plan_restrictions_factory,
+        django_assert_num_queries,
+    ):
+        hotel = hotel_factory(channex=True)
+        room_type = room_type_factory(hotel=hotel)
+        rate_plans = rate_plan_factory.create_batch(10, room_type=room_type)
+        for rate_plan in rate_plans:
+            rate_plan_restrictions_factory(rate_plan=rate_plan, date="2020-01-01")
+        adapter = ChannexPMSAdapter(room_type.hotel)
+        with django_assert_num_queries(3):
+            (
+                rate_plan_id_map,
+                saved_restrictions,
+            ) = adapter._get_synced_rate_plans_restrictions(
+                room_type_uuid=room_type.uuid,
+                room_type_pms_id=room_type.pms_id,
+                start_date="2020-01-01",
+                end_date="2020-01-31",
+            )
+            assert len(rate_plan_id_map) == 10
+            assert len(saved_restrictions) == 10
+            for value in saved_restrictions.values():
+                assert len(value) == 1
+
+        with pytest.raises(Exception):
+            adapter._get_synced_rate_plans_restrictions(
+                room_type_uuid=uuid.uuid4(),
+                room_type_pms_id=room_type.pms_id,
+                start_date="2020-01-01",
+                end_date="2020-01-31",
+            )
+
+    def test_get_restrictions_to_update(
+        self,
+        mocked_channex_validation,
+        mocker,
+        hotel_factory,
+        rate_plan_restrictions_factory,
+        availability_based_rule_factory,
+    ):
+        mocker.patch(
+            "backend.utils.channex_client.ChannexClient.get_rate_plans",
+            return_value=mocker.Mock(
+                status_code=200,
+                json=mocker.Mock(
+                    # Removed unnecessary fields
+                    return_value={
+                        "data": [
+                            {
+                                "attributes": {
+                                    "id": "3285e794-c11e-4089-9a3b-77294a85c2c5",
+                                    "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+                                },
+                                "id": "3285e794-c11e-4089-9a3b-77294a85c2c5",
+                                "type": "rate_plan",
+                            },
+                            {
+                                "attributes": {
+                                    "id": "dd1e2ead-b503-4289-a57e-ad51184fafbe",
+                                    "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+                                },
+                                "id": "dd1e2ead-b503-4289-a57e-ad51184fafbe",
+                                "type": "rate_plan",
+                            },
+                        ]
+                    }
+                ),
+            ),
+        )
+        hotel = hotel_factory(channex=True)
+        assert RoomType.objects.filter(hotel=hotel).count() == 1
+        assert RatePlan.objects.filter(room_type__hotel=hotel).count() == 2
+        RatePlanRestrictions.objects.create(
+            rate_plan=RatePlan.objects.get(
+                pms_id="3285e794-c11e-4089-9a3b-77294a85c2c5"
+            ),
+            date="2023-09-02",
+            rate=500000,
+        )
+        RatePlanRestrictions.objects.create(
+            rate_plan=RatePlan.objects.get(
+                pms_id="dd1e2ead-b503-4289-a57e-ad51184fafbe"
+            ),
+            date="2023-09-02",
+            rate=600000,
+        )
+
+        adapter = ChannexPMSAdapter(hotel)
+        a, b = adapter._get_restrictions_to_update(
+            room_type_uuid=uuid.uuid4(),
+            payload=[],
+        )
+        assert a == []
+        assert b == []
+        last_date = timezone.now() + timezone.timedelta(days=hotel.inventory_days)
+        a, b = adapter._get_restrictions_to_update(
+            room_type_uuid=uuid.uuid4(),
+            payload=[{"date": last_date.strftime("%Y-%m-%d")}],
+        )
+        assert a == []
+        assert b == []
+
+        # Set up rules
+        setting = hotel.group.dynamic_pricing_setting
+        setting.is_availability_based = True
+        setting.save()
+
+        # Create rules
+        availability_based_rule_factory(
+            setting=setting,
+            increment_factor=200000,
+            max_availability=11,
+        )
+        availability_based_rule_factory(
+            setting=setting,
+            increment_factor=250000,
+            max_availability=10,
+        )
+
+        mocker.patch(
+            "backend.utils.channex_client.ChannexClient.get_room_type_rate_plan_restrictions",
+            return_value=mocker.Mock(
+                status_code=200,
+                json=mocker.Mock(
+                    return_value={
+                        "data": {
+                            "3285e794-c11e-4089-9a3b-77294a85c2c5": {
+                                "2023-09-01": {"availability": 11, "rate": "500000"},
+                                "2023-09-02": {"availability": 10, "rate": "700000"},
+                            },
+                            "dd1e2ead-b503-4289-a57e-ad51184fafbe": {
+                                "2023-09-01": {"availability": 11, "rate": "600000"},
+                                "2023-09-02": {"availability": 10, "rate": "800000"},
+                            },
+                        }
+                    }
+                ),
+            ),
+        )
+        payload = [
+            {
+                "availability": 11,
+                "date": "2023-09-01",
+                "rate_plan_id": "dd1e2ead-b503-4289-a57e-ad51184fafbe",
+                "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+            },
+            {
+                "availability": 11,
+                "date": "2023-09-01",
+                "rate_plan_id": "3285e794-c11e-4089-9a3b-77294a85c2c5",
+                "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+            },
+            {
+                "availability": 10,
+                "date": "2023-09-02",
+                "rate_plan_id": "dd1e2ead-b503-4289-a57e-ad51184fafbe",
+                "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+            },
+            {
+                "availability": 10,
+                "date": "2023-09-02",
+                "rate_plan_id": "3285e794-c11e-4089-9a3b-77294a85c2c5",
+                "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+            },
+        ]
+        room_type = RoomType.objects.filter(hotel=hotel).first()
+        (
+            restriction_update_to_channex,
+            restriction_create_to_db,
+        ) = adapter._get_restrictions_to_update(
+            room_type_uuid=room_type.uuid,
+            payload=payload,
+        )
+        assert restriction_update_to_channex == [
+            {
+                "date": "2023-09-01",
+                "rate_plan_id": "3285e794-c11e-4089-9a3b-77294a85c2c5",
+                "property_id": hotel.pms_id,
+                "rate": 700000,
+            },
+            {
+                "date": "2023-09-02",
+                "rate_plan_id": "3285e794-c11e-4089-9a3b-77294a85c2c5",
+                "property_id": hotel.pms_id,
+                "rate": 750000,
+            },
+            {
+                "date": "2023-09-01",
+                "rate_plan_id": "dd1e2ead-b503-4289-a57e-ad51184fafbe",
+                "property_id": hotel.pms_id,
+                "rate": 800000,
+            },
+            {
+                "date": "2023-09-02",
+                "rate_plan_id": "dd1e2ead-b503-4289-a57e-ad51184fafbe",
+                "property_id": hotel.pms_id,
+                "rate": 850000,
+            },
+        ]
+        assert len(restriction_create_to_db) == 2
+
+    def test_handle_trigger(
+        self,
+        mocked_channex_validation,
+        mocker,
+        hotel_factory,
+        rate_plan_factory,
+        room_type_factory,
+    ):
+        hotel = hotel_factory(channex=True)
+        room_type = room_type_factory(hotel=hotel)
+        rate_plan = rate_plan_factory(room_type=room_type)
+        adapter = ChannexPMSAdapter(hotel)
+        mocker.patch(
+            "backend.pms.adapter.channex.ChannexPMSAdapter._get_restrictions_to_update",
+            return_value=(
+                [{}],
+                [
+                    RatePlanRestrictions(
+                        rate_plan=rate_plan,
+                        date=timezone.now().date(),
+                        rate=100000,
+                    )
+                ],
+            ),
+        )
+        mocker.patch(
+            "backend.utils.channex_client.ChannexClient.update_room_type_rate_plan_restrictions",
+            return_value=mocker.Mock(status_code=200),
+        )
+        adapter._handle_trigger(
+            room_type_uuid=uuid.uuid4(),
+            payload=[],
+        )
+        mocker.patch(
+            "backend.utils.channex_client.ChannexClient.update_room_type_rate_plan_restrictions",
+            return_value=mocker.Mock(status_code=401),
+        )
+
+        with pytest.raises(Exception):
+            adapter._handle_trigger(
+                room_type_uuid=uuid.uuid4(),
+                payload=[],
+            )

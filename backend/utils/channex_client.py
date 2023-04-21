@@ -67,16 +67,25 @@ class ChannexClient:
     def get_webhooks(self):
         return self._get("webhooks")
 
-    def create_webhook(self, data: dict):
+    def create_webhook(
+        self,
+        property_id: str,
+        callback_url: str,
+        event_mask: str,
+        request_params: dict = {},
+        headers: dict = {},
+        is_active: bool = True,
+        send_data: bool = True,
+    ):
         data = {
             "webhook": {
-                "property_id": data.get("property_id"),
-                "callback_url": data.get("callback_url"),
-                "event_mask": data.get("event_mask"),
-                "request_params": data.get("request_params", {}),
-                "headers": data.get("headers", {}),
-                "is_active": data.get("is_active", True),
-                "send_data": data.get("send_data", True),
+                "property_id": property_id,
+                "callback_url": callback_url,
+                "event_mask": event_mask,
+                "request_params": request_params,
+                "headers": headers,
+                "is_active": is_active,
+                "send_data": send_data,
             },
         }
         return self._post("webhooks", data=data)
@@ -117,19 +126,16 @@ class ChannexClient:
 
     def get_room_type_rate_plan_restrictions(
         self,
-        property_id: str,
-        room_type_id: str = None,
+        property_pms_id: str,
         date: datetime.date | str = None,
         date_from: datetime.date | str = None,
         date_to: datetime.date | str = None,
-        restrictions: list[str] = ["rate"],
+        restrictions: list[str] = ["rate", "availability"],
     ):
         params = {}
-        params["filter[property_id]"] = property_id
-        if room_type_id:
-            params["filter[room_type_id]"] = room_type_id
+        params["filter[property_id]"] = property_pms_id
         if restrictions:
-            params["filter[restriction]"] = ",".join(restrictions)
+            params["filter[restrictions]"] = ",".join(restrictions)
         if date:
             params["filter[date]"] = self._date_to_str(date)
         elif date_from and date_to:

@@ -8,6 +8,7 @@ from backend.pms.tests.factories import (
     HotelFactory,
     HotelGroupFactory,
     RatePlanFactory,
+    RatePlanRestrictionsFactory,
     RoomFactory,
     RoomTypeFactory,
 )
@@ -95,6 +96,11 @@ def rate_plan_factory(db) -> RatePlanFactory:
 
 
 @pytest.fixture
+def rate_plan_restrictions_factory(db) -> RatePlanRestrictionsFactory:
+    return RatePlanRestrictionsFactory
+
+
+@pytest.fixture
 def room_factory(db) -> RoomFactory:
     return RoomFactory
 
@@ -135,6 +141,10 @@ def mocked_channex_validation(mocker):
                 return_value={"data": []}
             ),
         ),
+    )
+    mocker.patch(
+        "backend.utils.channex_client.ChannexClient.create_webhook",
+        return_value=mocker.Mock(status_code=201),
     )
 
 

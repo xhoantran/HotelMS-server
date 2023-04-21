@@ -79,7 +79,6 @@ class RatePlanRestrictionsFactory(DjangoModelFactory):
     rate_plan = SubFactory(RatePlanFactory)
     date = Sequence(lambda n: timezone.now().date() + timezone.timedelta(days=n))
     rate = Faker("pydecimal", left_digits=2, right_digits=2, positive=True)
-    pms_id = Faker("uuid4")
 
     class Meta:
         model = RatePlanRestrictions

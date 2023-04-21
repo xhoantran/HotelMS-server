@@ -57,14 +57,21 @@ def test_dynamic_pricing_adapter_availability_based(
 ):
     hotel = hotel_factory()
     setting = hotel.group.dynamic_pricing_setting
-    # 1st: max_availability = 1
-    # 2nd: max_availability = 2
-    rules = availability_based_rule_factory.create_batch(2, setting=setting)
+    availability_based_rule_factory(
+        setting=setting,
+        max_availability=20,
+        increment_factor=100000,
+    )
+    availability_based_rule_factory(
+        setting=setting,
+        max_availability=10,
+        increment_factor=200000,
+    )
     adapter = DynamicPricingAdapter(hotel=hotel)
     assert len(adapter.availability_based_trigger_rules) == 0
 
     # No effect because setting is not enabled and already cached
-    assert adapter.get_availability_based_factor(1) == 1
+    assert adapter.get_availability_based_factor(1) == 0
 
     # Invalidate cache
     adapter.invalidate_cache()
@@ -77,8 +84,9 @@ def test_dynamic_pricing_adapter_availability_based(
     adapter.load_from_db()
     assert adapter.is_availability_based
     assert len(adapter.availability_based_trigger_rules) == 2
-    assert adapter.get_availability_based_factor(1) == rules[0].multiplier_factor
-    assert adapter.get_availability_based_factor(2) == rules[1].multiplier_factor
+    assert adapter.get_availability_based_factor(9) == 200000
+    assert adapter.get_availability_based_factor(10) == 200000
+    assert adapter.get_availability_based_factor(11) == 100000
 
 
 def test_dynamic_pricing_adapter_lead_days_based(hotel_factory):
@@ -221,4 +229,47 @@ def test_dynamic_pricing_adapter_season_based(hotel_factory, season_based_rule_f
     assert (
         adapter.get_season_based_factor(timezone.now() + timezone.timedelta(days=2))
         == 1
+    )
+
+
+def test_dynamic_pricing_adapter_calculate_rate(
+    hotel_factory, availability_based_rule_factory, lead_days_based_rule_factory
+):
+    hotel = hotel_factory()
+    setting = hotel.group.dynamic_pricing_setting
+
+    # Enable availability based and lead days based
+    setting.is_availability_based = True
+    setting.is_lead_days_based = True
+    setting.save()
+
+    # Create rules
+    availability_based_rule_factory(
+        setting=setting,
+        increment_factor=100,
+        max_availability=10,
+    )
+    lead_day_rule = lead_days_based_rule_factory(
+        setting=setting,
+        lead_days=1,
+    )
+    lead_day_rule.multiplier_factor = 1.5
+    lead_day_rule.save()
+
+    adapter = DynamicPricingAdapter(hotel=hotel)
+    assert (
+        adapter.calculate_rate(
+            date=timezone.now().date(),
+            availability=11,
+            rate=100,
+        )
+        == 150
+    )
+    assert (
+        adapter.calculate_rate(
+            date=timezone.now().date(),
+            availability=10,
+            rate=100,
+        )
+        == 300
     )

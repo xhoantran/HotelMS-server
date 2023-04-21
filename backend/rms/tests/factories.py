@@ -67,6 +67,7 @@ class LeadDaysBasedRuleFactory(DjangoModelFactory):
 class AvailabilityBasedTriggerRuleFactory(DjangoModelFactory):
     setting = SubFactory(DynamicPricingSettingFactory)
     max_availability = Sequence(lambda n: n + 1)
+    increment_factor = Faker("pyint", min_value=50, max_value=500)
 
     class Meta:
         model = AvailabilityBasedTriggerRule

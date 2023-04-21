@@ -161,11 +161,7 @@ class AvailabilityBasedTriggerRule(models.Model):
         related_name="availability_based_trigger_rules",
     )
     max_availability = models.SmallIntegerField()
-    multiplier_factor = models.DecimalField(
-        max_digits=3,
-        decimal_places=2,
-        default=1,
-    )
+    increment_factor = models.IntegerField()
 
     class Meta:
         unique_together = ("setting", "max_availability")

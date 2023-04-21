@@ -1,3 +1,6 @@
+import math
+from datetime import date as date_class
+
 from django.core.cache import cache
 from django.utils import timezone
 
@@ -97,10 +100,12 @@ class DynamicPricingAdapter:
         # Availability based trigger rules
         self.is_availability_based = self.setting.is_availability_based
         if self.is_availability_based:
+            # order_by is used to make sure that the rules are applied
+            # will be applied in the correct order, max -> min
             self.availability_based_trigger_rules = list(
-                AvailabilityBasedTriggerRule.objects.filter(
-                    setting=self.setting
-                ).values("max_availability", "multiplier_factor")
+                AvailabilityBasedTriggerRule.objects.filter(setting=self.setting)
+                .order_by("max_availability")
+                .values("max_availability", "increment_factor")
             )
         else:
             self.availability_based_trigger_rules = []
@@ -246,44 +251,55 @@ class DynamicPricingAdapter:
 
     def get_availability_based_factor(self, availability):
         """
-        Get the availability based multiplier factor for a given availability.
+        Get the availability based increment factor for a given availability.
 
         Args:
-            availability (int): The availability to get the availability based multiplier factor for.
+            availability (int): The availability to get the availability based increment factor for.
 
         Returns:
-            float: The availability based multiplier factor for the given availability.
+            int: The availability increment factor for the given availability.
         """
         for i in range(len(self.availability_based_trigger_rules)):
             if (
                 availability
                 <= self.availability_based_trigger_rules[i]["max_availability"]
             ):
-                return self.availability_based_trigger_rules[i]["multiplier_factor"]
-        return 1
+                return self.availability_based_trigger_rules[i]["increment_factor"]
+        return 0
 
-    def calculate_rate(self, base_rate, date, availability):
+    def calculate_rate(
+        self,
+        date: date_class,
+        rate: int,
+        availability: int,
+    ) -> int:
         """
-        Calculate the rate of a room for a given date.
+        Calculate the multiplier factor for a given room type, date and availability.
 
         Args:
-            room_type (RoomType): The room type to calculate the rate for.
-            date (date): The date to calculate the rate for.
+            date (date_class): The date to calculate the multiplier factor for.
+            rate (int): The rate to calculate the multiplier factor for.
+            availability (int): The availability to calculate the multiplier factor for.
 
         Returns:
-            float: The rate of the room for the given date.
+            int: The multiplier factor for the given room type, date and availability.
         """
         lead_days_based_factor = self.get_lead_days_based_factor(date)
         week_day_based_factor = self.get_weekday_based_factor(date)
         month_based_factor = self.get_month_based_factor(date)
         season_based_factor = self.get_season_based_factor(date)
         availability_based_factor = self.get_availability_based_factor(availability)
-        val = (
-            base_rate
+        print(
+            date,
+            rate,
+            availability,
+            availability_based_factor,
+            self.availability_based_trigger_rules,
+        )
+        return math.ceil(
+            (rate + availability_based_factor)
             * lead_days_based_factor
             * week_day_based_factor
             * month_based_factor
             * season_based_factor
-            * availability_based_factor
         )
-        return val

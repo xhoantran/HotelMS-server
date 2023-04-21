@@ -118,6 +118,20 @@ class RoomType(models.Model):
         unique_together = ("hotel", "pms_id")
 
 
+class RoomTypeAvailability(models.Model):
+    room_type = models.ForeignKey(
+        RoomType,
+        on_delete=models.CASCADE,
+        related_name="availability",
+    )
+    date = models.DateField()
+    availability = models.SmallIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("room_type", "date")
+
+
 class RatePlan(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     name = models.CharField(max_length=64)
@@ -140,8 +154,8 @@ class RatePlanRestrictions(models.Model):
         related_name="restrictions",
     )
     date = models.DateField()
-    availability = models.SmallIntegerField(default=0)
-    rate = models.DecimalField(max_digits=10, decimal_places=2)
+    rate = models.IntegerField()
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ("rate_plan", "date")
@@ -170,7 +184,7 @@ class Booking(models.Model):
         on_delete=models.PROTECT,
         related_name="bookings",
     )
-    rate = models.DecimalField(max_digits=10, decimal_places=2)
+    rate = models.IntegerField()
     start_date = models.DateField()
     end_date = models.DateField()
     is_cancelled = models.BooleanField(default=False)

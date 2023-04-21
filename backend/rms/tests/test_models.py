@@ -49,3 +49,36 @@ def test_season_based_rule_save(
             end_month=12,
             end_day=32,
         )
+
+
+def test_time_based_rule_save(
+    db,
+    time_based_rule_factory,
+    dynamic_pricing_setting_factory,
+):
+    setting = dynamic_pricing_setting_factory()
+    time_based_rule_factory(setting=setting)
+    with pytest.raises(ValueError):
+        time_based_rule_factory(
+            setting=setting,
+            trigger_time="16:00:00",
+            multiplier_factor=1.1,
+            min_availability=10,
+            max_availability=0,
+        )
+
+    with pytest.raises(ValueError):
+        time_based_rule_factory(
+            setting=setting,
+            trigger_time="16:00:00",
+            multiplier_factor=1.1,
+            is_today=True,
+            is_tomorrow=True,
+        )
+
+    with pytest.raises(ValueError):
+        time_based_rule_factory(
+            setting=setting,
+            is_today=False,
+            is_tomorrow=False,
+        )

@@ -21,11 +21,6 @@ class DynamicPricingSetting(models.Model):
     is_availability_based = models.BooleanField(default=False)
     is_time_based = models.BooleanField(default=False)
 
-    # def save(self, *args, **kwargs):
-    #     if self.lead_day_window < 35 or self.lead_day_window > 365:
-    #         raise ValueError("Invalid lead day window")
-    #     super().save(*args, **kwargs)
-
 
 class LeadDaysBasedRule(models.Model):
     setting = models.ForeignKey(
@@ -185,5 +180,14 @@ class TimeBasedTriggerRule(models.Model):
     min_availability = models.SmallIntegerField()
     max_availability = models.SmallIntegerField()
     is_today = models.BooleanField()
-    is_tommorow = models.BooleanField()
-    is_active = models.BooleanField()
+    is_tomorrow = models.BooleanField()
+    is_active = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        if self.max_availability < self.min_availability:
+            raise ValueError("Max availability must be greater than min availability")
+
+        # either today or tomorrow must be true
+        if not bool(self.is_today ^ self.is_tomorrow):
+            raise ValueError("Cannot be both today and tommorow")
+        super().save(*args, **kwargs)

@@ -24,6 +24,7 @@ def test_dynamic_pricing_adapter_cache(
     db_season_based_rules = adapter.season_based_rules
     db_availability_based_trigger_rules = adapter.availability_based_trigger_rules
     db_lead_days_based_rules = adapter.lead_days_based_rules
+    db_time_based_trigger_rules = adapter.time_based_trigger_rules
     with django_assert_num_queries(1):
         adapter = DynamicPricingAdapter(hotel=hotel_id)
         assert adapter.weekday_based_rules == db_weekday_based_rules
@@ -34,6 +35,7 @@ def test_dynamic_pricing_adapter_cache(
             == db_availability_based_trigger_rules
         )
         assert adapter.lead_days_based_rules == db_lead_days_based_rules
+        assert adapter.time_based_trigger_rules == db_time_based_trigger_rules
     adapter.invalidate_cache()
     assert not cache.get(adapter.get_cache_key())
 
@@ -50,6 +52,7 @@ def test_dynamic_pricing_adapter_default(hotel_factory):
     assert not adapter.is_month_based
     assert not adapter.is_season_based
     assert not adapter.is_availability_based
+    assert not adapter.is_time_based
 
 
 def test_dynamic_pricing_adapter_availability_based(
@@ -160,7 +163,6 @@ def test_dynamic_pricing_adapter_weekday_based(
     # Load from db
     adapter.load_from_db()
     assert adapter.is_weekday_based
-    print(adapter.weekday_based_rules)
     assert len(adapter.weekday_based_rules) == 7
     assert adapter.get_weekday_based_factor(timezone.now()) == Decimal("1.1")
 
@@ -273,3 +275,42 @@ def test_dynamic_pricing_adapter_calculate_rate(
         )
         == 300
     )
+
+
+def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_factory):
+    hotel = hotel_factory()
+    setting = hotel.group.dynamic_pricing_setting
+
+    current_time = timezone.now().time()
+    rule = time_based_rule_factory(
+        setting=setting,
+        trigger_time=current_time,
+        multiplier_factor=1.1,
+        min_availability=1,
+        max_availability=10,
+        is_today=True,
+        is_tomorrow=False,
+        is_active=True,
+    )
+    adapter = DynamicPricingAdapter(hotel=hotel)
+    rule.multiplier_factor = 1.1
+    rule.save()
+
+    # No effect because setting is not enabled and already cached
+    assert adapter.get_time_based_factor(current_time, 5) == 1
+
+    # Invalidate cache
+    adapter.invalidate_cache()
+
+    # Enable season based
+    setting.is_time_based = True
+    setting.save()
+
+    # Load from db
+    adapter.load_from_db()
+    assert adapter.is_time_based
+    assert len(adapter.time_based_trigger_rules) == 1
+    assert adapter.get_time_based_factor(current_time, 5) == Decimal("1.1")
+
+    # Availability out of range
+    assert adapter.get_time_based_factor(current_time, 11) == 1

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from factory import Faker, LazyAttribute, Sequence, SubFactory
+from factory import Faker, LazyAttribute, Sequence, SubFactory, Trait
 from factory.django import DjangoModelFactory
 
 from backend.pms.tests.factories import HotelGroupFactory
@@ -11,6 +11,7 @@ from ..models import (
     LeadDaysBasedRule,
     MonthBasedRule,
     SeasonBasedRule,
+    TimeBasedTriggerRule,
     WeekdayBasedRule,
 )
 
@@ -72,3 +73,24 @@ class AvailabilityBasedTriggerRuleFactory(DjangoModelFactory):
     class Meta:
         model = AvailabilityBasedTriggerRule
         django_get_or_create = ("setting", "max_availability")
+
+
+class TimeBasedTriggerRuleFactory(DjangoModelFactory):
+    setting = SubFactory(DynamicPricingSettingFactory)
+    trigger_time = Faker("time", pattern="%H:%M:%S")
+    multiplier_factor = Faker("pydecimal", left_digits=1, right_digits=1, positive=True)
+    min_availability = Faker("pyint", min_value=1, max_value=10)
+    max_availability = LazyAttribute(lambda o: o.min_availability + o.availability_gap)
+    is_today = True
+    is_tomorrow = False
+    is_active = True
+
+    class Meta:
+        model = TimeBasedTriggerRule
+
+    class Params:
+        availability_gap = Faker("pyint", min_value=1, max_value=10)
+        tomorrow = Trait(
+            is_today=False,
+            is_tomorrow=True,
+        )

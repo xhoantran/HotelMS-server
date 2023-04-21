@@ -9,7 +9,8 @@ User = get_user_model()
 
 class TestHotelModel:
     def test_default_setting(self, hotel_factory):
-        hotel = hotel_factory()
+        hotel = hotel_factory(name="Hotel")
+        assert str(hotel) == "Hotel"
         assert hotel.pms == Hotel.PMSChoices.__empty__
         assert isinstance(hotel.adapter, DefaultPMSAdapter)
 

@@ -6,32 +6,42 @@ from django.utils import timezone
 
 from backend.pms.models import Hotel
 
-from .models import TimeBasedTriggerRule  # noqa F401
 from .models import (
     AvailabilityBasedTriggerRule,
     DynamicPricingSetting,
     LeadDaysBasedRule,
     MonthBasedRule,
     SeasonBasedRule,
+    TimeBasedTriggerRule,
     WeekdayBasedRule,
 )
 from .utils import is_within_period
 
 
 class DynamicPricingAdapter:
-    def __init__(self, hotel: Hotel | str | int):
+    def __init__(
+        self, hotel: Hotel | str | int = None, setting: DynamicPricingSetting = None
+    ):
         """
         Initialize the dynamic pricing adapter.
 
         Args:
             hotel (Hotel): The hotel to initialize the dynamic pricing adapter for.
         """
-        try:
-            self.setting: DynamicPricingSetting = DynamicPricingSetting.objects.get(
-                hotel_group__hotels=hotel
-            )
-        except DynamicPricingSetting.DoesNotExist:
-            raise ValueError("Hotel does not belong to a hotel group")
+        if isinstance(setting, DynamicPricingSetting):
+            self.setting = setting
+
+        elif (
+            isinstance(hotel, Hotel) or isinstance(hotel, str) or isinstance(hotel, int)
+        ):
+            try:
+                self.setting: DynamicPricingSetting = DynamicPricingSetting.objects.get(
+                    hotel_group__hotels=hotel
+                )
+            except DynamicPricingSetting.DoesNotExist:
+                raise ValueError("Hotel does not belong to a hotel group")
+        else:
+            raise ValueError("Must provide either a hotel or a setting")
         self.load_from_cache()
 
     def load_from_db(self: str):
@@ -109,6 +119,23 @@ class DynamicPricingAdapter:
             )
         else:
             self.availability_based_trigger_rules = []
+        # Time based trigger rules
+        self.is_time_based = self.setting.is_time_based
+        if self.is_time_based:
+            self.time_based_trigger_rules = list(
+                TimeBasedTriggerRule.objects.filter(
+                    setting=self.setting, is_active=True
+                ).values(
+                    "trigger_time",
+                    "multiplier_factor",
+                    "min_availability",
+                    "max_availability",
+                    "is_today",
+                    "is_tomorrow",
+                )
+            )
+        else:
+            self.time_based_trigger_rules = []
 
     def get_cache_key(self: str) -> str:
         """
@@ -148,6 +175,9 @@ class DynamicPricingAdapter:
                 # Availability based trigger rules
                 "is_availability_based": self.setting.is_availability_based,
                 "availability_based_trigger_rules": self.availability_based_trigger_rules,
+                # Time based trigger rules
+                "is_time_based": self.setting.is_time_based,
+                "time_based_trigger_rules": self.time_based_trigger_rules,
             },
             timeout=None if self.setting.is_lead_days_based else None,
         )
@@ -182,6 +212,9 @@ class DynamicPricingAdapter:
             self.availability_based_trigger_rules = ret[
                 "availability_based_trigger_rules"
             ]
+            # Time based trigger rules
+            self.is_time_based = ret["is_time_based"]
+            self.time_based_trigger_rules = ret["time_based_trigger_rules"]
 
     def get_lead_days_based_factor(self, date: timezone.datetime.date) -> float:
         """
@@ -267,11 +300,33 @@ class DynamicPricingAdapter:
                 return self.availability_based_trigger_rules[i]["increment_factor"]
         return 0
 
+    def get_time_based_factor(self, time: timezone.datetime.time, availability: int):
+        """
+        Get the time based multiplier factor for a given time.
+
+        Args:
+            time (time): The time to get the time based multiplier factor for.
+
+        Returns:
+            float: The time based multiplier factor for the given time.
+        """
+        if not self.is_time_based or time is None:
+            return 1
+        for rule in self.time_based_trigger_rules:
+            if (
+                rule["trigger_time"] == time
+                and availability >= rule["min_availability"]
+                and availability <= rule["max_availability"]
+            ):
+                return rule["multiplier_factor"]
+        return 1
+
     def calculate_rate(
         self,
         date: date_class,
         rate: int,
         availability: int,
+        time: timezone.datetime.time = None,
     ) -> int:
         """
         Calculate the multiplier factor for a given room type, date and availability.
@@ -289,17 +344,13 @@ class DynamicPricingAdapter:
         month_based_factor = self.get_month_based_factor(date)
         season_based_factor = self.get_season_based_factor(date)
         availability_based_factor = self.get_availability_based_factor(availability)
-        print(
-            date,
-            rate,
-            availability,
-            availability_based_factor,
-            self.availability_based_trigger_rules,
-        )
+        time_based_factor = self.get_time_based_factor(time, availability)
+
         return math.ceil(
             (rate + availability_based_factor)
             * lead_days_based_factor
             * week_day_based_factor
             * month_based_factor
             * season_based_factor
+            * time_based_factor
         )

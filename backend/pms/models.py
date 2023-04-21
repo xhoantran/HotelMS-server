@@ -10,6 +10,9 @@ User = get_user_model()
 class HotelGroup(models.Model):
     name = models.CharField(max_length=255)
 
+    def __str__(self):
+        return self.name
+
 
 class Hotel(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
@@ -68,6 +71,9 @@ class Hotel(models.Model):
             raise ValueError("Inventory days must be between 100 and 700")
         self.validate_pms()
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
 
 
 class HotelAPIKey(AbstractAPIKey):

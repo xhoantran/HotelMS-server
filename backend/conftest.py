@@ -18,6 +18,7 @@ from backend.rms.tests.factories import (
     LeadDaysBasedRuleFactory,
     MonthBasedRuleFactory,
     SeasonBasedRuleFactory,
+    TimeBasedTriggerRuleFactory,
     WeekdayBasedRuleFactory,
 )
 from backend.users.models import User
@@ -181,3 +182,8 @@ def lead_days_based_rule_factory(db) -> LeadDaysBasedRuleFactory:
 @pytest.fixture
 def availability_based_rule_factory(db) -> AvailabilityBasedTriggerRuleFactory:
     return AvailabilityBasedTriggerRuleFactory
+
+
+@pytest.fixture
+def time_based_rule_factory(db) -> TimeBasedTriggerRuleFactory:
+    return TimeBasedTriggerRuleFactory

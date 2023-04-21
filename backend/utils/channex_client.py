@@ -1,4 +1,5 @@
 import datetime
+import json
 from collections.abc import Iterator
 
 import requests
@@ -148,8 +149,9 @@ class ChannexClient:
         return self._get("restrictions/", params=params)
 
     def update_room_type_rate_plan_restrictions(self, data: Iterator[dict]):
-        # return self._post("restrictions", data={"values": data})
         mail_admins(
             "ChannexClient.update_room_type_rate_plan_restrictions",
-            f"Data: {data}",
+            # visuallize json
+            f"Data: \n{json.dumps(data, indent=4)}",
         )
+        return self._post("restrictions", data={"values": data})

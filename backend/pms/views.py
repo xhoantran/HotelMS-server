@@ -66,7 +66,7 @@ class ChannexAvailabilityCallbackAPIView(generics.GenericAPIView):
             room_type_uuid = request.GET.get("room_type_uuid")
 
             if request.data.get("event") != "ari":
-                return response.Response(status=400)
+                return response.Response(status=400, data={"error": "Invalid event"})
 
             # If user_id is present, it means that the request is triggered
             # by a manual action in the Channex dashboard.
@@ -76,10 +76,12 @@ class ChannexAvailabilityCallbackAPIView(generics.GenericAPIView):
                 )
 
             # TODO: Change this to a celery task
-            adapter.handle_trigger(room_type_uuid, request.data.get("payload"))
+            adapter.handle_availability_trigger(
+                room_type_uuid, request.data.get("payload")
+            )
             return response.Response(status=200)
 
         except HotelAPIKey.DoesNotExist:
-            return response.Response(status=401)
+            return response.Response(status=401, data={"error": "Invalid API key"})
         except Exception as e:
             return response.Response(status=500, data={"error": str(e)})

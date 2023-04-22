@@ -2,7 +2,7 @@ from django.contrib.sites.models import Site
 from django.db.models import Prefetch
 from django.urls import reverse
 from django.utils import timezone
-
+from django.core.mail import send_mail
 from backend.rms.adapter import DynamicPricingAdapter
 from backend.utils.channex_client import ChannexClient
 
@@ -42,8 +42,9 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             callback_url=callback_url,
             event_mask=f"ari:availability:{room_type_pms_id}:*",
             request_params={"room_type_uuid": room_type_uuid},
-            headers={"Api-Key": api_key},
+            headers={"Authorization": f"Api-Key: {api_key}"},
         )
+        # TODO:If webhook already exists, update it
         if response.status_code != 201:
             raise Exception(response.json())
 
@@ -177,7 +178,12 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             days=self.hotel.inventory_days
         )
         if payload[0]["date"] == inventory_day_date.strftime("%Y-%m-%d"):
-            # TODO: Log this
+            send_mail(
+                "Channex inventory day",
+                str(payload),
+                "no-reply@pms.xhoantran.com",
+                recipient_list=["xhoantran@gmail.com"],
+            )
             return [], []
 
         date = set()
@@ -250,7 +256,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
 
         return restriction_update_to_channex, restriction_create_to_db
 
-    def handle_trigger(self, room_type_uuid: str, payload: dict) -> bool:
+    def handle_availability_trigger(self, room_type_uuid: str, payload: dict) -> bool:
         (
             restriction_update_to_channex,
             restriction_create_to_db,

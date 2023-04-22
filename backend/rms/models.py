@@ -2,6 +2,7 @@ from datetime import datetime
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django_celery_beat.models import PeriodicTask
 
 from backend.pms.models import HotelGroup
 
@@ -182,6 +183,13 @@ class TimeBasedTriggerRule(models.Model):
     is_today = models.BooleanField()
     is_tomorrow = models.BooleanField()
     is_active = models.BooleanField(default=True)
+
+    periodic_task = models.OneToOneField(
+        PeriodicTask,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
 
     def save(self, *args, **kwargs):
         if self.max_availability < self.min_availability:

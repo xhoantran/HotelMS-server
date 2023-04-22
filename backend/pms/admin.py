@@ -1,5 +1,11 @@
 from django.apps import apps
 from django.contrib import admin
+from django_celery_beat.models import (
+    CrontabSchedule,
+    IntervalSchedule,
+    PeriodicTask,
+    PeriodicTasks,
+)
 
 from backend.rms.models import AvailabilityBasedTriggerRule, DynamicPricingSetting
 
@@ -13,5 +19,11 @@ admin.site.register(HotelGroup)
 admin.site.register(Hotel)
 admin.site.register(RoomType)
 admin.site.register(RatePlan)
+
 admin.site.register(DynamicPricingSetting)
 admin.site.register(AvailabilityBasedTriggerRule)
+
+admin.site.register(PeriodicTask)
+admin.site.register(PeriodicTasks)
+admin.site.register(IntervalSchedule)
+admin.site.register(CrontabSchedule)

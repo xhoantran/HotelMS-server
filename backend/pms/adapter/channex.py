@@ -1,8 +1,9 @@
 from django.contrib.sites.models import Site
+from django.core.mail import mail_admins
 from django.db.models import Prefetch
 from django.urls import reverse
 from django.utils import timezone
-from django.core.mail import send_mail
+
 from backend.rms.adapter import DynamicPricingAdapter
 from backend.utils.channex_client import ChannexClient
 
@@ -174,16 +175,11 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             return [], []
 
         # We don't deal with changes that created by inventory_day mechanism
+        # TODO: Check timezone
         inventory_day_date = timezone.now() + timezone.timedelta(
             days=self.hotel.inventory_days
         )
         if payload[0]["date"] == inventory_day_date.strftime("%Y-%m-%d"):
-            send_mail(
-                "Channex inventory day",
-                str(payload),
-                "no-reply@pms.xhoantran.com",
-                recipient_list=["xhoantran@gmail.com"],
-            )
             return [], []
 
         date = set()
@@ -263,6 +259,12 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         ) = self._get_restrictions_to_update(
             room_type_uuid=room_type_uuid,
             payload=payload,
+        )
+        mail_admins(
+            "Availability Trigger",
+            f"Restriction update to channex: {restriction_update_to_channex}"
+            f"\nRestriction create to db: {restriction_create_to_db}"
+            f"\nPayload: {payload}",
         )
 
         if len(restriction_update_to_channex) > 0:

@@ -183,7 +183,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         # We don't deal with changes that created by inventory_day mechanism
         # TODO: Check timezone
         inventory_day_date = timezone.now() + timezone.timedelta(
-            days=self.hotel.inventory_days
+            days=self.hotel.inventory_days - 1
         )
         if payload[0]["date"] == inventory_day_date.strftime("%Y-%m-%d"):
             return [], []

@@ -8,3 +8,8 @@ is_active                     is_active (rule) and is_enable (rms)
 """
 
 from config.celery_app import app
+
+
+@app.task
+def handle_time_rule_trigger(hotel_group_id):
+    pass

@@ -75,10 +75,7 @@ class ChannexAvailabilityCallbackAPIView(generics.GenericAPIView):
                     status=200, data={"status": "Ignore manual trigger"}
                 )
 
-<<<<<<< HEAD
             # TODO: Change this to a celery task
-=======
->>>>>>> refs/remotes/origin/main
             adapter.handle_trigger(room_type_uuid, request.data.get("payload"))
             return response.Response(status=200)
 

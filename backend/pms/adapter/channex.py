@@ -45,7 +45,13 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             request_params={"room_type_uuid": room_type_uuid},
             headers={"Authorization": f"Api-Key: {api_key}"},
         )
-        # TODO:If webhook already exists, update it
+        if response.status_code == 422:
+            mail_admins(
+                subject="Channex webhook already exists",
+                message=f"Room type uuid: {room_type_uuid}, "
+                f"room type pms id: {room_type_pms_id}, "
+                f"hotel pms id: {self.hotel.pms_id}",
+            )
         if response.status_code != 201:
             raise Exception(response.json())
 

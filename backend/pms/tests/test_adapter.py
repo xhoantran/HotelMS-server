@@ -1,4 +1,5 @@
 import uuid
+import zoneinfo
 
 import pytest
 from django.utils import timezone
@@ -250,7 +251,6 @@ class TestChannexPMSAdapter:
         mocked_channex_validation,
         mocker,
         hotel_factory,
-        rate_plan_restrictions_factory,
         availability_based_rule_factory,
     ):
         mocker.patch(
@@ -307,8 +307,30 @@ class TestChannexPMSAdapter:
         )
         assert a == []
         assert b == []
-        last_date = timezone.localtime() + timezone.timedelta(
-            days=hotel.inventory_days - 1
+        hotel.inventory_days = 500
+        hotel.save()
+        mocker.patch(
+            "django.utils.timezone.localtime",
+            return_value=timezone.datetime(
+                2023,
+                4,
+                24,
+                0,
+                30,
+                54,
+                645056,
+                tzinfo=zoneinfo.ZoneInfo(key="Asia/Ho_Chi_Minh"),
+            ),
+        )
+        last_date = timezone.datetime(
+            2024,
+            9,
+            4,
+            0,
+            31,
+            21,
+            146832,
+            tzinfo=zoneinfo.ZoneInfo(key="Asia/Ho_Chi_Minh"),
         )
         a, b = adapter._get_restrictions_to_update(
             room_type_uuid=uuid.uuid4(),

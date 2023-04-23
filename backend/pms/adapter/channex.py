@@ -181,7 +181,6 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             return [], []
 
         # We don't deal with changes that created by inventory_day mechanism
-        # TODO: Check timezone
         inventory_day_date = timezone.localtime() + timezone.timedelta(
             days=self.hotel.inventory_days - 1
         )

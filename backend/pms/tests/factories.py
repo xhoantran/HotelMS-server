@@ -75,7 +75,7 @@ class RatePlanFactory(DjangoModelFactory):
 
 class RatePlanRestrictionsFactory(DjangoModelFactory):
     rate_plan = SubFactory(RatePlanFactory)
-    date = Sequence(lambda n: timezone.now().date() + timezone.timedelta(days=n))
+    date = Sequence(lambda n: timezone.localtime().date() + timezone.timedelta(days=n))
     rate = Faker("pydecimal", left_digits=2, right_digits=2, positive=True)
 
     class Meta:
@@ -97,12 +97,14 @@ class BookingFactory(DjangoModelFactory):
     )
     room = SubFactory(RoomFactory)
     rate = Faker("pydecimal", left_digits=2, right_digits=2, positive=True)
-    start_date = Sequence(lambda n: timezone.now().date() + timezone.timedelta(days=n))
+    start_date = Sequence(
+        lambda n: timezone.localtime().date() + timezone.timedelta(days=n)
+    )
 
     @lazy_attribute
     def end_date(self):
         ret = self.start_date + timezone.timedelta(days=self.duration)
-        BookingFactory.reset_sequence((ret - timezone.now().date()).days)
+        BookingFactory.reset_sequence((ret - timezone.localtime().date()).days)
         return ret
 
     class Params:

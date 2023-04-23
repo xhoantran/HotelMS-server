@@ -57,7 +57,7 @@ def post_save_rate_plan(sender, instance: RatePlan, created, **kwargs):
             rate_plan_restrictions.append(
                 RatePlanRestrictions(
                     rate_plan=instance,
-                    date=timezone.now() + timezone.timedelta(days=i),
+                    date=timezone.localtime() + timezone.timedelta(days=i),
                     rate=0,
                 )
             )
@@ -84,7 +84,7 @@ def validate_booking(sender, instance: Booking, **kwargs):
         raise ValidationError("User must be a guest")
     if instance.start_date >= instance.end_date:
         raise ValidationError("Start date must be before end date")
-    if instance.start_date < timezone.now().date():
+    if instance.start_date < timezone.localtime().date():
         raise ValidationError("Start date must be in the future")
     if instance.room.bookings.filter(
         Q(

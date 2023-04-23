@@ -69,8 +69,8 @@ def test_pre_save_booking(db, guest, manager):
         Booking.objects.create(
             user=guest,
             room=room,
-            start_date=timezone.now().date() - timezone.timedelta(days=3),
-            end_date=timezone.now().date() - timezone.timedelta(days=2),
+            start_date=timezone.localtime().date() - timezone.timedelta(days=3),
+            end_date=timezone.localtime().date() - timezone.timedelta(days=2),
             rate=100,
         )
 
@@ -79,8 +79,8 @@ def test_pre_save_booking(db, guest, manager):
         Booking.objects.create(
             user=guest,
             room=room,
-            start_date=timezone.now().date() + timezone.timedelta(days=2),
-            end_date=timezone.now().date() + timezone.timedelta(days=1),
+            start_date=timezone.localtime().date() + timezone.timedelta(days=2),
+            end_date=timezone.localtime().date() + timezone.timedelta(days=1),
             rate=100,
         )
 
@@ -88,16 +88,16 @@ def test_pre_save_booking(db, guest, manager):
     Booking.objects.create(
         user=guest,
         room=room,
-        start_date=timezone.now().date() + timezone.timedelta(days=2),
-        end_date=timezone.now().date() + timezone.timedelta(days=4),
+        start_date=timezone.localtime().date() + timezone.timedelta(days=2),
+        end_date=timezone.localtime().date() + timezone.timedelta(days=4),
         rate=100,
     )
     with pytest.raises(ValidationError):
         Booking.objects.create(
             user=guest,
             room=room,
-            start_date=timezone.now().date() + timezone.timedelta(days=3),
-            end_date=timezone.now().date() + timezone.timedelta(days=5),
+            start_date=timezone.localtime().date() + timezone.timedelta(days=3),
+            end_date=timezone.localtime().date() + timezone.timedelta(days=5),
             rate=100,
         )
 
@@ -105,8 +105,8 @@ def test_pre_save_booking(db, guest, manager):
         Booking.objects.create(
             user=guest,
             room=room,
-            start_date=timezone.now().date() + timezone.timedelta(days=1),
-            end_date=timezone.now().date() + timezone.timedelta(days=3),
+            start_date=timezone.localtime().date() + timezone.timedelta(days=1),
+            end_date=timezone.localtime().date() + timezone.timedelta(days=3),
             rate=100,
         )
 
@@ -114,8 +114,8 @@ def test_pre_save_booking(db, guest, manager):
     Booking.objects.create(
         user=guest,
         room=room,
-        start_date=timezone.now().date() + timezone.timedelta(days=4),
-        end_date=timezone.now().date() + timezone.timedelta(days=5),
+        start_date=timezone.localtime().date() + timezone.timedelta(days=4),
+        end_date=timezone.localtime().date() + timezone.timedelta(days=5),
         rate=100,
     )
 
@@ -124,7 +124,7 @@ def test_pre_save_booking(db, guest, manager):
         Booking.objects.create(
             user=manager,
             room=room,
-            start_date=timezone.now().date() + timezone.timedelta(days=2),
-            end_date=timezone.now().date() + timezone.timedelta(days=3),
+            start_date=timezone.localtime().date() + timezone.timedelta(days=2),
+            end_date=timezone.localtime().date() + timezone.timedelta(days=3),
             rate=100,
         )

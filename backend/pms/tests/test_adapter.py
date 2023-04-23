@@ -81,8 +81,8 @@ class TestRoomTypeAdapter:
         booking_factory(room=rooms[0])
         room_type_adapter = RoomTypeAdapter(room_type)
         available_room = room_type_adapter.get_available_room(
-            start_date=timezone.now(),
-            end_date=timezone.now() + timezone.timedelta(days=20),
+            start_date=timezone.localtime(),
+            end_date=timezone.localtime() + timezone.timedelta(days=20),
         )
         assert available_room == rooms[1]
 
@@ -307,7 +307,9 @@ class TestChannexPMSAdapter:
         )
         assert a == []
         assert b == []
-        last_date = timezone.now() + timezone.timedelta(days=hotel.inventory_days - 1)
+        last_date = timezone.localtime() + timezone.timedelta(
+            days=hotel.inventory_days - 1
+        )
         a, b = adapter._get_restrictions_to_update(
             room_type_uuid=uuid.uuid4(),
             payload=[{"date": last_date.strftime("%Y-%m-%d")}],
@@ -433,7 +435,7 @@ class TestChannexPMSAdapter:
                 [
                     RatePlanRestrictions(
                         rate_plan=rate_plan,
-                        date=timezone.now().date(),
+                        date=timezone.localtime().date(),
                         rate=100000,
                     )
                 ],

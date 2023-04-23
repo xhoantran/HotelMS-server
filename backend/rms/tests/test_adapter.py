@@ -45,7 +45,7 @@ def test_dynamic_pricing_adapter_default(hotel_factory):
         DynamicPricingAdapter(hotel=None)
     hotel = hotel_factory()
     adapter = DynamicPricingAdapter(hotel=hotel.id)  # uuid
-    assert adapter.get_lead_days_based_factor(date=timezone.now().date()) == 1
+    assert adapter.get_lead_days_based_factor(date=timezone.localtime().date()) == 1
     assert adapter.is_enabled
     assert not adapter.is_lead_days_based
     assert not adapter.is_weekday_based
@@ -106,7 +106,8 @@ def test_dynamic_pricing_adapter_lead_days_based(hotel_factory):
     # No effect because setting is not enabled and already cached
     assert (
         adapter.get_lead_days_based_factor(
-            date=timezone.now().date() + timezone.timedelta(days=lead_day_window + 1)
+            date=timezone.localtime().date()
+            + timezone.timedelta(days=lead_day_window + 1)
         )
         == 1
     )
@@ -123,17 +124,19 @@ def test_dynamic_pricing_adapter_lead_days_based(hotel_factory):
     assert adapter.is_lead_days_based
     assert (
         adapter.get_lead_days_based_factor(
-            date=timezone.now().date() + timezone.timedelta(days=lead_day_window + 1)
+            date=timezone.localtime().date()
+            + timezone.timedelta(days=lead_day_window + 1)
         )
         == 1.5
     )
     with pytest.raises(ValueError):
         adapter.get_lead_days_based_factor(
-            date=timezone.now().date() - timezone.timedelta(days=1)
+            date=timezone.localtime().date() - timezone.timedelta(days=1)
         )
     assert (
         adapter.get_lead_days_based_factor(
-            date=timezone.now().date() + timezone.timedelta(days=lead_day_window - 1)
+            date=timezone.localtime().date()
+            + timezone.timedelta(days=lead_day_window - 1)
         )
         == 1
     )
@@ -145,7 +148,9 @@ def test_dynamic_pricing_adapter_weekday_based(
     hotel = hotel_factory()
     setting = hotel.group.dynamic_pricing_setting
     # today weekday
-    rule = weekday_based_rule_factory(weekday=timezone.now().weekday(), setting=setting)
+    rule = weekday_based_rule_factory(
+        weekday=timezone.localtime().weekday() + 1, setting=setting
+    )
     adapter = DynamicPricingAdapter(hotel=hotel)
     rule.multiplier_factor = 1.1
     rule.save()
@@ -164,14 +169,14 @@ def test_dynamic_pricing_adapter_weekday_based(
     adapter.load_from_db()
     assert adapter.is_weekday_based
     assert len(adapter.weekday_based_rules) == 7
-    assert adapter.get_weekday_based_factor(timezone.now()) == Decimal("1.1")
+    assert adapter.get_weekday_based_factor(timezone.localtime()) == Decimal("1.1")
 
 
 def test_dynamic_pricing_adapter_month_based(hotel_factory, month_based_rule_factory):
     hotel = hotel_factory()
     setting = hotel.group.dynamic_pricing_setting
     # today month
-    rule = month_based_rule_factory(month=timezone.now().month, setting=setting)
+    rule = month_based_rule_factory(month=timezone.localtime().month, setting=setting)
     adapter = DynamicPricingAdapter(hotel=hotel)
     rule.multiplier_factor = 1.1
     rule.save()
@@ -190,7 +195,7 @@ def test_dynamic_pricing_adapter_month_based(hotel_factory, month_based_rule_fac
     adapter.load_from_db()
     assert adapter.is_month_based
     assert len(adapter.month_based_rules) == 12
-    assert adapter.get_month_based_factor(timezone.now()) == Decimal("1.1")
+    assert adapter.get_month_based_factor(timezone.localtime()) == Decimal("1.1")
 
 
 def test_dynamic_pricing_adapter_season_based(hotel_factory, season_based_rule_factory):
@@ -198,8 +203,8 @@ def test_dynamic_pricing_adapter_season_based(hotel_factory, season_based_rule_f
     setting = hotel.group.dynamic_pricing_setting
 
     # pick a random season
-    start_date = timezone.now().date() - timezone.timedelta(days=1)
-    end_date = timezone.now().date() + timezone.timedelta(days=1)
+    start_date = timezone.localtime().date() - timezone.timedelta(days=1)
+    end_date = timezone.localtime().date() + timezone.timedelta(days=1)
     rule = season_based_rule_factory(
         setting=setting,
         start_day=start_date.day,
@@ -225,11 +230,13 @@ def test_dynamic_pricing_adapter_season_based(hotel_factory, season_based_rule_f
     adapter.load_from_db()
     assert adapter.is_season_based
     assert len(adapter.season_based_rules) == 1
-    assert adapter.get_season_based_factor(timezone.now()) == Decimal("1.1")
+    assert adapter.get_season_based_factor(timezone.localtime()) == Decimal("1.1")
 
     # Out of season
     assert (
-        adapter.get_season_based_factor(timezone.now() + timezone.timedelta(days=2))
+        adapter.get_season_based_factor(
+            timezone.localtime() + timezone.timedelta(days=2)
+        )
         == 1
     )
 
@@ -261,7 +268,7 @@ def test_dynamic_pricing_adapter_calculate_rate(
     adapter = DynamicPricingAdapter(hotel=hotel)
     assert (
         adapter.calculate_rate(
-            date=timezone.now().date(),
+            date=timezone.localtime().date(),
             availability=11,
             rate=100,
         )
@@ -269,7 +276,7 @@ def test_dynamic_pricing_adapter_calculate_rate(
     )
     assert (
         adapter.calculate_rate(
-            date=timezone.now().date(),
+            date=timezone.localtime().date(),
             availability=10,
             rate=100,
         )
@@ -281,7 +288,7 @@ def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_facto
     hotel = hotel_factory()
     setting = hotel.group.dynamic_pricing_setting
 
-    current_time = timezone.now().time()
+    current_time = timezone.localtime().time()
     rule = time_based_rule_factory(
         setting=setting,
         trigger_time=current_time,

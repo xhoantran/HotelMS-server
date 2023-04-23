@@ -229,7 +229,7 @@ class DynamicPricingAdapter:
         """
         if not self.is_lead_days_based:
             return 1
-        lead_days = (date - timezone.now().date()).days
+        lead_days = (date - timezone.localtime().date()).days
         if lead_days < 0:
             raise ValueError("Lead time must be positive.")
         if lead_days >= len(self.lead_days_based_rules):
@@ -248,7 +248,7 @@ class DynamicPricingAdapter:
         """
         if not self.is_weekday_based:
             return 1
-        return self.weekday_based_rules[date.weekday() - 1]
+        return self.weekday_based_rules[date.weekday()]
 
     def get_month_based_factor(self, date: timezone.datetime.date) -> float:
         """

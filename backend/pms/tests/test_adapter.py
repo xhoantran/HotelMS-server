@@ -307,7 +307,7 @@ class TestChannexPMSAdapter:
         )
         assert a == []
         assert b == []
-        last_date = timezone.now() + timezone.timedelta(days=hotel.inventory_days)
+        last_date = timezone.now() + timezone.timedelta(days=hotel.inventory_days - 1)
         a, b = adapter._get_restrictions_to_update(
             room_type_uuid=uuid.uuid4(),
             payload=[{"date": last_date.strftime("%Y-%m-%d")}],

@@ -71,7 +71,7 @@ class ChannexAvailabilityCallbackAPIView(generics.GenericAPIView):
             # If user_id is present, it means that the request is triggered
             # by a manual action in the Channex dashboard.
             if not request.data.get("user_id", True):
-                adapter.handle_availability_trigger(
+                adapter.handle_booked_ari_trigger(
                     room_type_uuid, request.data.get("payload")
                 )
             return response.Response(status=200)

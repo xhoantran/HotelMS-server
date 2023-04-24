@@ -253,10 +253,9 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                                 rate=original_rate,  # Original rate
                             )
                         )
-
         return restriction_update_to_channex, restriction_create_to_db
 
-    def handle_availability_trigger(self, room_type_uuid: str, payload: dict) -> bool:
+    def handle_booked_ari_trigger(self, room_type_uuid: str, payload: dict) -> bool:
         (
             restriction_update_to_channex,
             restriction_create_to_db,
@@ -265,12 +264,11 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             payload=payload,
         )
         mail_admins(
-            "Availability Trigger",
+            "booked Trigger",
             f"Restriction update to channex: {restriction_update_to_channex}"
             f"\nRestriction create to db: {restriction_create_to_db}"
             f"\nPayload: {payload}",
         )
-
         if len(restriction_update_to_channex) > 0:
             response = self.client.update_room_type_rate_plan_restrictions(
                 data=restriction_update_to_channex
@@ -279,5 +277,4 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                 raise Exception(response.json())
             RatePlanRestrictions.objects.bulk_create(restriction_create_to_db)
             return True
-
         return False

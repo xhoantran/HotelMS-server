@@ -346,10 +346,14 @@ class TestChannexPMSAdapter:
 
         # Create rules
         occupancy_based_rule_factory(
-            setting=setting, increment_factor=200000, min_occupancy=10
+            setting=setting,
+            increment_factor=200000,
+            min_occupancy=10,
         )
         occupancy_based_rule_factory(
-            setting=setting, increment_factor=250000, min_occupancy=11
+            setting=setting,
+            increment_factor=250000,
+            min_occupancy=11,
         )
 
         mocker.patch(
@@ -360,12 +364,12 @@ class TestChannexPMSAdapter:
                     return_value={
                         "data": {
                             "3285e794-c11e-4089-9a3b-77294a85c2c5": {
-                                "2023-09-01": {"availability": 11, "rate": "500000"},
-                                "2023-09-02": {"availability": 10, "rate": "700000"},
+                                "2023-09-01": {"booked": 10, "rate": "500000"},
+                                "2023-09-02": {"booked": 11, "rate": "700000"},
                             },
                             "dd1e2ead-b503-4289-a57e-ad51184fafbe": {
-                                "2023-09-01": {"availability": 11, "rate": "600000"},
-                                "2023-09-02": {"availability": 10, "rate": "800000"},
+                                "2023-09-01": {"booked": 10, "rate": "600000"},
+                                "2023-09-02": {"booked": 11, "rate": "800000"},
                             },
                         }
                     }
@@ -374,25 +378,25 @@ class TestChannexPMSAdapter:
         )
         payload = [
             {
-                "availability": 11,
+                "booked": 11,
                 "date": "2023-09-01",
                 "rate_plan_id": "dd1e2ead-b503-4289-a57e-ad51184fafbe",
                 "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
             },
             {
-                "availability": 11,
+                "booked": 11,
                 "date": "2023-09-01",
                 "rate_plan_id": "3285e794-c11e-4089-9a3b-77294a85c2c5",
                 "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
             },
             {
-                "availability": 10,
+                "booked": 10,
                 "date": "2023-09-02",
                 "rate_plan_id": "dd1e2ead-b503-4289-a57e-ad51184fafbe",
                 "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
             },
             {
-                "availability": 10,
+                "booked": 10,
                 "date": "2023-09-02",
                 "rate_plan_id": "3285e794-c11e-4089-9a3b-77294a85c2c5",
                 "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",

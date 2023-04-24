@@ -165,8 +165,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             for restriction in synced_rate_plan.filtered_restrictions:
                 date = restriction.date.strftime("%Y-%m-%d")
                 saved_restrictions[str(synced_rate_plan.pms_id)][date] = {
-                    # "availability": restriction.availability,
-                    "rate": restriction.rate,
+                    "rate": restriction.rate
                 }
 
         return rate_plan_id_map, saved_restrictions
@@ -205,7 +204,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             property_pms_id=self.hotel.pms_id,
             date_from=date_range[0],
             date_to=date_range[-1],
-            restrictions=["rate", "availability"],
+            restrictions=["rate", "booked"],
         )
         if response.status_code != 200:
             raise Exception(response.json())
@@ -231,7 +230,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                 new_rate = self.rms_adapter.calculate_rate(
                     date=timezone.datetime.strptime(date, "%Y-%m-%d").date(),
                     rate=int(original_rate),
-                    availability=channex_data[rate_plan_pms_id][date]["availability"],
+                    occupancy=channex_data[rate_plan_pms_id][date]["booked"],
                 )
 
                 # If new rate is different from original rate, update it

@@ -41,7 +41,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         response = self.client.create_webhook(
             property_id=str(self.hotel.pms_id),
             callback_url=callback_url,
-            event_mask=f"ari:availability:{room_type_pms_id}:*",
+            event_mask=f"ari:booked:{room_type_pms_id}:*",
             request_params={"room_type_uuid": room_type_uuid},
             headers={"Authorization": f"Api-Key: {api_key}"},
         )

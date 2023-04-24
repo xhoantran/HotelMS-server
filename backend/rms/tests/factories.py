@@ -6,13 +6,14 @@ from factory.django import DjangoModelFactory
 from backend.pms.tests.factories import HotelGroupFactory
 
 from ..models import (
-    AvailabilityBasedTriggerRule,
     DynamicPricingSetting,
     LeadDaysBasedRule,
     MonthBasedRule,
+    OccupancyBasedTriggerRule,
     SeasonBasedRule,
     TimeBasedTriggerRule,
     WeekdayBasedRule,
+    RuleFactor,
 )
 
 
@@ -25,7 +26,26 @@ class DynamicPricingSettingFactory(DjangoModelFactory):
         django_get_or_create = ("hotel_group",)
 
 
-class WeekdayBasedRuleFactory(DjangoModelFactory):
+class RuleFactoryFactory(DjangoModelFactory):
+    setting = SubFactory(DynamicPricingSettingFactory)
+
+    class Params:
+        multiplier = Trait(
+            increment_factor=0,
+            multiplier_factor=Faker(
+                "pydecimal", left_digits=1, right_digits=1, positive=True
+            ),
+        )
+        increment = Trait(
+            increment_factor=Faker("pyint", min_value=50, max_value=500),
+            multiplier_factor=1,
+        )
+
+    class Meta:
+        model = RuleFactor
+
+
+class WeekdayBasedRuleFactory(RuleFactoryFactory):
     setting = SubFactory(DynamicPricingSettingFactory)
 
     class Meta:
@@ -33,7 +53,7 @@ class WeekdayBasedRuleFactory(DjangoModelFactory):
         django_get_or_create = ("setting", "weekday")
 
 
-class MonthBasedRuleFactory(DjangoModelFactory):
+class MonthBasedRuleFactory(RuleFactoryFactory):
     setting = SubFactory(DynamicPricingSettingFactory)
 
     class Meta:
@@ -41,7 +61,7 @@ class MonthBasedRuleFactory(DjangoModelFactory):
         django_get_or_create = ("setting", "month")
 
 
-class SeasonBasedRuleFactory(DjangoModelFactory):
+class SeasonBasedRuleFactory(RuleFactoryFactory):
     setting = SubFactory(DynamicPricingSettingFactory)
     name = Faker("word")
     start_day = LazyAttribute(lambda o: datetime.strptime(o.d1, "%m/%d").day)
@@ -57,7 +77,7 @@ class SeasonBasedRuleFactory(DjangoModelFactory):
         model = SeasonBasedRule
 
 
-class LeadDaysBasedRuleFactory(DjangoModelFactory):
+class LeadDaysBasedRuleFactory(RuleFactoryFactory):
     setting = SubFactory(DynamicPricingSettingFactory)
 
     class Meta:
@@ -65,22 +85,20 @@ class LeadDaysBasedRuleFactory(DjangoModelFactory):
         django_get_or_create = ("setting", "lead_days")
 
 
-class AvailabilityBasedTriggerRuleFactory(DjangoModelFactory):
+class OccupancyBasedTriggerRuleFactory(RuleFactoryFactory):
     setting = SubFactory(DynamicPricingSettingFactory)
-    max_availability = Sequence(lambda n: n + 1)
-    increment_factor = Faker("pyint", min_value=50, max_value=500)
+    min_occupancy = Sequence(lambda n: n + 1)
 
     class Meta:
-        model = AvailabilityBasedTriggerRule
-        django_get_or_create = ("setting", "max_availability")
+        model = OccupancyBasedTriggerRule
+        django_get_or_create = ("setting", "min_occupancy")
 
 
-class TimeBasedTriggerRuleFactory(DjangoModelFactory):
+class TimeBasedTriggerRuleFactory(RuleFactoryFactory):
     setting = SubFactory(DynamicPricingSettingFactory)
     trigger_time = Faker("time", pattern="%H:%M:%S")
-    multiplier_factor = Faker("pydecimal", left_digits=1, right_digits=1, positive=True)
-    min_availability = Faker("pyint", min_value=1, max_value=10)
-    max_availability = LazyAttribute(lambda o: o.min_availability + o.availability_gap)
+    min_occupancy = Faker("pyint", min_value=1, max_value=10)
+    max_occupancy = LazyAttribute(lambda o: o.min_occupancy + o.occupancy_gap)
     is_today = True
     is_tomorrow = False
     is_active = True
@@ -89,7 +107,7 @@ class TimeBasedTriggerRuleFactory(DjangoModelFactory):
         model = TimeBasedTriggerRule
 
     class Params:
-        availability_gap = Faker("pyint", min_value=1, max_value=10)
+        occupancy_gap = Faker("pyint", min_value=1, max_value=10)
         tomorrow = Trait(
             is_today=False,
             is_tomorrow=True,

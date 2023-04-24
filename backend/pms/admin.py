@@ -1,7 +1,7 @@
 from django.apps import apps
 from django.contrib import admin
 
-from backend.rms.models import AvailabilityBasedTriggerRule, DynamicPricingSetting
+from backend.rms.models import OccupancyBasedTriggerRule, DynamicPricingSetting
 
 from .models import Hotel, HotelGroup, RatePlan, RoomType
 
@@ -18,7 +18,7 @@ admin.site.register(RatePlan)
 
 # RMS
 admin.site.register(DynamicPricingSetting)
-admin.site.register(AvailabilityBasedTriggerRule)
+admin.site.register(OccupancyBasedTriggerRule)
 
 
 # admin.site.register(PeriodicTask)

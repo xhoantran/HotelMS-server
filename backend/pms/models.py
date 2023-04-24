@@ -129,20 +129,6 @@ class RoomType(models.Model):
         unique_together = ("hotel", "pms_id")
 
 
-class RoomTypeAvailability(models.Model):
-    room_type = models.ForeignKey(
-        RoomType,
-        on_delete=models.CASCADE,
-        related_name="availability",
-    )
-    date = models.DateField()
-    availability = models.SmallIntegerField(default=0)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ("room_type", "date")
-
-
 class RatePlan(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     name = models.CharField(max_length=64)

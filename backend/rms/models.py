@@ -8,6 +8,11 @@ from backend.pms.models import HotelGroup
 # from django_celery_beat.models import PeriodicTask
 
 
+class FactorChoices:
+    MULTIPLIER = 0
+    INCREMENT = 1
+
+
 class DynamicPricingSetting(models.Model):
     hotel_group = models.OneToOneField(
         HotelGroup,
@@ -20,22 +25,34 @@ class DynamicPricingSetting(models.Model):
     is_weekday_based = models.BooleanField(default=False)
     is_month_based = models.BooleanField(default=False)
     is_season_based = models.BooleanField(default=False)
-    is_availability_based = models.BooleanField(default=False)
+    is_occupancy_based = models.BooleanField(default=False)
     is_time_based = models.BooleanField(default=False)
 
 
-class LeadDaysBasedRule(models.Model):
+class RuleFactor(models.Model):
+    multiplier_factor = models.DecimalField(max_digits=3, decimal_places=2, default=1)
+    increment_factor = models.IntegerField(default=0)
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        if self.multiplier_factor < 0:
+            raise ValueError("Multiplier factor must be positive")
+        if self.increment_factor < 0:
+            raise ValueError("Increment factor must be positive")
+        if self.multiplier_factor != 1 and self.increment_factor != 0:
+            raise ValueError("Multiplier and increment cannot be used together")
+        super().save(*args, **kwargs)
+
+
+class LeadDaysBasedRule(RuleFactor):
     setting = models.ForeignKey(
         DynamicPricingSetting,
         on_delete=models.CASCADE,
         related_name="lead_days_based_rules",
     )
     lead_days = models.SmallIntegerField()
-    multiplier_factor = models.DecimalField(
-        max_digits=3,
-        decimal_places=2,
-        default=1,
-    )
 
     class Meta:
         unique_together = ("setting", "lead_days")
@@ -44,16 +61,11 @@ class LeadDaysBasedRule(models.Model):
         ]
 
 
-class WeekdayBasedRule(models.Model):
+class WeekdayBasedRule(RuleFactor):
     setting = models.ForeignKey(
         DynamicPricingSetting,
         on_delete=models.CASCADE,
         related_name="weekday_based_rules",
-    )
-    multiplier_factor = models.DecimalField(
-        max_digits=3,
-        decimal_places=2,
-        default=1,
     )
 
     class WeekdayChoices(models.IntegerChoices):
@@ -79,16 +91,11 @@ class WeekdayBasedRule(models.Model):
         super().save(*args, **kwargs)
 
 
-class MonthBasedRule(models.Model):
+class MonthBasedRule(RuleFactor):
     setting = models.ForeignKey(
         DynamicPricingSetting,
         on_delete=models.CASCADE,
         related_name="month_based_rules",
-    )
-    multiplier_factor = models.DecimalField(
-        max_digits=3,
-        decimal_places=2,
-        default=1,
     )
 
     class MonthChoices(models.IntegerChoices):
@@ -119,16 +126,11 @@ class MonthBasedRule(models.Model):
         super().save(*args, **kwargs)
 
 
-class SeasonBasedRule(models.Model):
+class SeasonBasedRule(RuleFactor):
     setting = models.ForeignKey(
         DynamicPricingSetting,
         on_delete=models.CASCADE,
         related_name="season_based_rules",
-    )
-    multiplier_factor = models.DecimalField(
-        max_digits=3,
-        decimal_places=2,
-        default=1,
     )
     name = models.CharField(max_length=64)
     start_month = models.SmallIntegerField()
@@ -151,36 +153,37 @@ class SeasonBasedRule(models.Model):
         super().save(*args, **kwargs)
 
 
-class AvailabilityBasedTriggerRule(models.Model):
+class OccupancyBasedTriggerRule(RuleFactor):
     setting = models.ForeignKey(
         DynamicPricingSetting,
         on_delete=models.CASCADE,
-        related_name="availability_based_trigger_rules",
+        related_name="occupancy_based_trigger_rules",
     )
-    max_availability = models.SmallIntegerField()
-    increment_factor = models.IntegerField()
+    min_occupancy = models.SmallIntegerField()
 
     class Meta:
-        unique_together = ("setting", "max_availability")
+        unique_together = ("setting", "min_occupancy")
         indexes = [
-            models.Index(fields=["setting", "max_availability"]),
+            models.Index(fields=["setting", "min_occupancy"]),
         ]
 
+    def save(self, *args, **kwargs):
+        if self.increment_factor != 0 and self.multiplier_factor != 1:
+            raise ValueError(
+                "Increment factor and multiplier factor cannot be set at the same time"
+            )
+        super().save(*args, **kwargs)
 
-class TimeBasedTriggerRule(models.Model):
+
+class TimeBasedTriggerRule(RuleFactor):
     setting = models.ForeignKey(
         DynamicPricingSetting,
         on_delete=models.CASCADE,
         related_name="time_based_trigger_rules",
     )
     trigger_time = models.TimeField()
-    multiplier_factor = models.DecimalField(
-        max_digits=3,
-        decimal_places=2,
-        default=1,
-    )
-    min_availability = models.SmallIntegerField()
-    max_availability = models.SmallIntegerField()
+    min_occupancy = models.SmallIntegerField()
+    max_occupancy = models.SmallIntegerField()
     is_today = models.BooleanField()
     is_tomorrow = models.BooleanField()
     is_active = models.BooleanField(default=True)
@@ -193,8 +196,8 @@ class TimeBasedTriggerRule(models.Model):
     # )
 
     def save(self, *args, **kwargs):
-        if self.max_availability < self.min_availability:
-            raise ValueError("Max availability must be greater than min availability")
+        if self.min_occupancy > self.max_occupancy:
+            raise ValueError("Min occupancy cannot be greater than max occupancy")
 
         # either today or tomorrow must be true
         if not bool(self.is_today ^ self.is_tomorrow):

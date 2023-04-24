@@ -13,10 +13,10 @@ from backend.pms.tests.factories import (
     RoomTypeFactory,
 )
 from backend.rms.tests.factories import (
-    AvailabilityBasedTriggerRuleFactory,
     DynamicPricingSettingFactory,
     LeadDaysBasedRuleFactory,
     MonthBasedRuleFactory,
+    OccupancyBasedTriggerRuleFactory,
     SeasonBasedRuleFactory,
     TimeBasedTriggerRuleFactory,
     WeekdayBasedRuleFactory,
@@ -180,8 +180,8 @@ def lead_days_based_rule_factory(db) -> LeadDaysBasedRuleFactory:
 
 
 @pytest.fixture
-def availability_based_rule_factory(db) -> AvailabilityBasedTriggerRuleFactory:
-    return AvailabilityBasedTriggerRuleFactory
+def occupancy_based_rule_factory(db) -> OccupancyBasedTriggerRuleFactory:
+    return OccupancyBasedTriggerRuleFactory
 
 
 @pytest.fixture

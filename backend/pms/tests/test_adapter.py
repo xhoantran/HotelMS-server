@@ -251,7 +251,7 @@ class TestChannexPMSAdapter:
         mocked_channex_validation,
         mocker,
         hotel_factory,
-        availability_based_rule_factory,
+        occupancy_based_rule_factory,
     ):
         mocker.patch(
             "backend.utils.channex_client.ChannexClient.get_rate_plans",
@@ -341,19 +341,15 @@ class TestChannexPMSAdapter:
 
         # Set up rules
         setting = hotel.group.dynamic_pricing_setting
-        setting.is_availability_based = True
+        setting.is_occupancy_based = True
         setting.save()
 
         # Create rules
-        availability_based_rule_factory(
-            setting=setting,
-            increment_factor=200000,
-            max_availability=11,
+        occupancy_based_rule_factory(
+            setting=setting, increment_factor=200000, min_occupancy=10
         )
-        availability_based_rule_factory(
-            setting=setting,
-            increment_factor=250000,
-            max_availability=10,
+        occupancy_based_rule_factory(
+            setting=setting, increment_factor=250000, min_occupancy=11
         )
 
         mocker.patch(

@@ -63,8 +63,8 @@ def test_time_based_rule_save(
             setting=setting,
             trigger_time="16:00:00",
             multiplier_factor=1.1,
-            min_availability=10,
-            max_availability=0,
+            min_occupancy=1,
+            max_occupancy=0,
         )
 
     with pytest.raises(ValueError):

@@ -4,7 +4,7 @@ from django.dispatch import receiver
 from .adapter import DynamicPricingAdapter
 from .models import (
     DynamicPricingSetting,
-    HotelGroup,
+    Hotel,
     LeadDaysBasedRule,
     MonthBasedRule,
     WeekdayBasedRule,
@@ -13,12 +13,12 @@ from .models import (
 
 @receiver(
     post_save,
-    sender=HotelGroup,
-    dispatch_uid="rms:post_save_hotel_group",
+    sender=Hotel,
+    dispatch_uid="rms:post_save_hotel",
 )
-def post_save_hotel_group(sender, instance: HotelGroup, created, **kwargs):
+def post_save_hotel(sender, instance: Hotel, created, **kwargs):
     if created:
-        setting = DynamicPricingSetting.objects.create(hotel_group=instance)
+        setting = DynamicPricingSetting.objects.create(hotel=instance)
         lead_days_based_rules = []
         for i in range(setting.lead_day_window + 1):
             lead_days_based_rules.append(

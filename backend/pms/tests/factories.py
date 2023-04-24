@@ -7,7 +7,6 @@ from ..models import (
     Booking,
     Hotel,
     HotelEmployee,
-    HotelGroup,
     RatePlan,
     RatePlanRestrictions,
     Room,
@@ -17,18 +16,9 @@ from ..models import (
 User = get_user_model()
 
 
-class HotelGroupFactory(DjangoModelFactory):
-    name = Faker("word")
-
-    class Meta:
-        model = HotelGroup
-        django_get_or_create = ("name",)
-
-
 class HotelFactory(DjangoModelFactory):
     name = Faker("company")
     inventory_days = Faker("pyint", min_value=100, max_value=700)
-    group = SubFactory(HotelGroupFactory)
 
     class Params:
         channex = Trait(

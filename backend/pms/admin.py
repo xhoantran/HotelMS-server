@@ -3,7 +3,7 @@ from django.contrib import admin
 
 from backend.rms.models import DynamicPricingSetting, OccupancyBasedTriggerRule
 
-from .models import Hotel, HotelGroup, RatePlan, RoomType
+from .models import Hotel, RatePlan, RoomType
 
 for model in apps.get_models():
     if model.__name__ and admin.site.is_registered(model):
@@ -11,7 +11,6 @@ for model in apps.get_models():
 
 
 # PMS
-admin.site.register(HotelGroup)
 admin.site.register(Hotel)
 admin.site.register(RoomType)
 admin.site.register(RatePlan)

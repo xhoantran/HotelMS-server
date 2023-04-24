@@ -3,7 +3,7 @@ from datetime import datetime
 from factory import Faker, LazyAttribute, Sequence, SubFactory, Trait
 from factory.django import DjangoModelFactory
 
-from backend.pms.tests.factories import HotelGroupFactory
+from backend.pms.tests.factories import HotelFactory
 
 from ..models import (
     DynamicPricingSetting,
@@ -18,12 +18,12 @@ from ..models import (
 
 
 class DynamicPricingSettingFactory(DjangoModelFactory):
-    hotel_group = SubFactory(HotelGroupFactory)
+    hotel = SubFactory(HotelFactory)
     lead_day_window = Faker("pyint", min_value=35, max_value=365)
 
     class Meta:
         model = DynamicPricingSetting
-        django_get_or_create = ("hotel_group",)
+        django_get_or_create = ("hotel",)
 
 
 class RuleFactoryFactory(DjangoModelFactory):

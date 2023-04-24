@@ -11,11 +11,9 @@ from ..models import FactorChoices, LeadDaysBasedRule
 def test_dynamic_pricing_adapter_cache(
     hotel_factory,
     room_type_factory,
-    hotel_group_factory,
     django_assert_num_queries,
 ):
-    group = hotel_group_factory()
-    hotel = hotel_factory(group=group)
+    hotel = hotel_factory()
     room_type_factory.create_batch(10, hotel=hotel)
     hotel_id = str(hotel.id)
     adapter = DynamicPricingAdapter(hotel=hotel)
@@ -58,7 +56,7 @@ def test_dynamic_pricing_adapter_occupancy_based(
     hotel_factory, occupancy_based_rule_factory
 ):
     hotel = hotel_factory()
-    setting = hotel.group.dynamic_pricing_setting
+    setting = hotel.dynamic_pricing_setting
     occupancy_based_rule_factory(
         setting=setting,
         min_occupancy=10,
@@ -96,7 +94,7 @@ def test_dynamic_pricing_adapter_occupancy_based(
 
 def test_dynamic_pricing_adapter_lead_days_based(hotel_factory):
     hotel = hotel_factory()
-    setting = hotel.group.dynamic_pricing_setting
+    setting = hotel.dynamic_pricing_setting
     adapter = DynamicPricingAdapter(hotel=hotel)
     last_rule = (
         LeadDaysBasedRule.objects.filter(setting=setting).order_by("-lead_days").first()
@@ -136,7 +134,7 @@ def test_dynamic_pricing_adapter_weekday_based(
     hotel_factory, weekday_based_rule_factory
 ):
     hotel = hotel_factory()
-    setting = hotel.group.dynamic_pricing_setting
+    setting = hotel.dynamic_pricing_setting
     # today weekday
     rule = weekday_based_rule_factory(
         weekday=timezone.localtime().weekday() + 1, setting=setting
@@ -167,7 +165,7 @@ def test_dynamic_pricing_adapter_weekday_based(
 
 def test_dynamic_pricing_adapter_month_based(hotel_factory, month_based_rule_factory):
     hotel = hotel_factory()
-    setting = hotel.group.dynamic_pricing_setting
+    setting = hotel.dynamic_pricing_setting
     # today month
     rule = month_based_rule_factory(month=timezone.localtime().month, setting=setting)
     adapter = DynamicPricingAdapter(hotel=hotel)
@@ -196,7 +194,7 @@ def test_dynamic_pricing_adapter_month_based(hotel_factory, month_based_rule_fac
 
 def test_dynamic_pricing_adapter_season_based(hotel_factory, season_based_rule_factory):
     hotel = hotel_factory()
-    setting = hotel.group.dynamic_pricing_setting
+    setting = hotel.dynamic_pricing_setting
 
     # pick a random season
     start_date = timezone.localtime().date() - timezone.timedelta(days=1)
@@ -239,7 +237,7 @@ def test_dynamic_pricing_adapter_season_based(hotel_factory, season_based_rule_f
 
 def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_factory):
     hotel = hotel_factory()
-    setting = hotel.group.dynamic_pricing_setting
+    setting = hotel.dynamic_pricing_setting
 
     current_time = timezone.localtime().time()
     rule = time_based_rule_factory(
@@ -291,7 +289,7 @@ def test_dynamic_pricing_adapter_calculate_rate(
     lead_days_based_rule_factory,
 ):
     hotel = hotel_factory()
-    setting = hotel.group.dynamic_pricing_setting
+    setting = hotel.dynamic_pricing_setting
 
     # Enable availability based and lead days based
     setting.is_occupancy_based = True

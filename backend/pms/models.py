@@ -7,24 +7,10 @@ from rest_framework_api_key.models import AbstractAPIKey
 User = get_user_model()
 
 
-class HotelGroup(models.Model):
-    name = models.CharField(max_length=255)
-
-    def __str__(self):
-        return self.name
-
-
 class Hotel(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     name = models.CharField(max_length=255)
     inventory_days = models.SmallIntegerField(default=100)
-    group = models.ForeignKey(
-        HotelGroup,
-        on_delete=models.PROTECT,
-        related_name="hotels",
-        null=True,
-        blank=True,
-    )
 
     class PMSChoices(models.TextChoices):
         CHANNEX = "CHANNEX", "Channex"

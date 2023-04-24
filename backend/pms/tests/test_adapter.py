@@ -340,7 +340,7 @@ class TestChannexPMSAdapter:
         assert b == []
 
         # Set up rules
-        setting = hotel.group.dynamic_pricing_setting
+        setting = hotel.dynamic_pricing_setting
         setting.is_occupancy_based = True
         setting.save()
 

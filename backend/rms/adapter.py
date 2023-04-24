@@ -35,12 +35,9 @@ class DynamicPricingAdapter:
         elif (
             isinstance(hotel, Hotel) or isinstance(hotel, str) or isinstance(hotel, int)
         ):
-            try:
-                self.setting: DynamicPricingSetting = DynamicPricingSetting.objects.get(
-                    hotel_group__hotels=hotel
-                )
-            except DynamicPricingSetting.DoesNotExist:
-                raise ValueError("Hotel does not belong to a hotel group")
+            self.setting: DynamicPricingSetting = DynamicPricingSetting.objects.get(
+                hotel=hotel
+            )
         else:
             raise ValueError("Must provide either a hotel or a setting")
         self.load_from_cache()

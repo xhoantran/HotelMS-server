@@ -6,7 +6,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from backend.pms.tests.factories import (
     BookingFactory,
     HotelFactory,
-    HotelGroupFactory,
     RatePlanFactory,
     RatePlanRestrictionsFactory,
     RoomFactory,
@@ -147,11 +146,6 @@ def mocked_channex_validation(mocker):
         "backend.utils.channex_client.ChannexClient.create_webhook",
         return_value=mocker.Mock(status_code=201),
     )
-
-
-@pytest.fixture
-def hotel_group_factory(db) -> HotelGroupFactory:
-    return HotelGroupFactory
 
 
 @pytest.fixture

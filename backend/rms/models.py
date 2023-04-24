@@ -3,7 +3,7 @@ from datetime import datetime
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from backend.pms.models import HotelGroup
+from backend.pms.models import Hotel
 
 # from django_celery_beat.models import PeriodicTask
 
@@ -14,8 +14,8 @@ class FactorChoices:
 
 
 class DynamicPricingSetting(models.Model):
-    hotel_group = models.OneToOneField(
-        HotelGroup,
+    hotel = models.OneToOneField(
+        Hotel,
         on_delete=models.CASCADE,
         related_name="dynamic_pricing_setting",
     )

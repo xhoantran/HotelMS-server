@@ -1,7 +1,7 @@
 from django.apps import apps
 from django.contrib import admin
 
-from backend.rms.models import OccupancyBasedTriggerRule, DynamicPricingSetting
+from backend.rms.models import DynamicPricingSetting, OccupancyBasedTriggerRule
 
 from .models import Hotel, HotelGroup, RatePlan, RoomType
 

@@ -10,10 +10,10 @@ from ..models import (
     LeadDaysBasedRule,
     MonthBasedRule,
     OccupancyBasedTriggerRule,
+    RuleFactor,
     SeasonBasedRule,
     TimeBasedTriggerRule,
     WeekdayBasedRule,
-    RuleFactor,
 )
 
 

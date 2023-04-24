@@ -70,15 +70,10 @@ class ChannexAvailabilityCallbackAPIView(generics.GenericAPIView):
 
             # If user_id is present, it means that the request is triggered
             # by a manual action in the Channex dashboard.
-            if request.data.get("user_id", True):
-                return response.Response(
-                    status=200, data={"status": "Ignore manual trigger"}
+            if not request.data.get("user_id", True):
+                adapter.handle_availability_trigger(
+                    room_type_uuid, request.data.get("payload")
                 )
-
-            # TODO: Change this to a celery task
-            adapter.handle_availability_trigger(
-                room_type_uuid, request.data.get("payload")
-            )
             return response.Response(status=200)
 
         except HotelAPIKey.DoesNotExist:

@@ -167,13 +167,6 @@ class OccupancyBasedTriggerRule(RuleFactor):
             models.Index(fields=["setting", "min_occupancy"]),
         ]
 
-    def save(self, *args, **kwargs):
-        if self.increment_factor != 0 and self.multiplier_factor != 1:
-            raise ValueError(
-                "Increment factor and multiplier factor cannot be set at the same time"
-            )
-        super().save(*args, **kwargs)
-
 
 class TimeBasedTriggerRule(RuleFactor):
     setting = models.ForeignKey(

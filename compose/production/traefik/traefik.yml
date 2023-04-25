@@ -22,7 +22,7 @@ certificatesResolvers:
   letsencrypt:
     # https://docs.traefik.io/master/https/acme/#lets-encrypt
     acme:
-      email: "noreply@pms.xhoantran.com"
+      email: "no-reply@hanz.group"
       storage: /etc/traefik/acme/acme.json
       # https://docs.traefik.io/master/https/acme/#httpchallenge
       httpChallenge:
@@ -31,7 +31,7 @@ certificatesResolvers:
 http:
   routers:
     web-secure-router:
-      rule: "Host(`pms.xhoantran.com`) || Host(`www.pms.xhoantran.com`)"
+      rule: "Host(`app.hanz.com.vn`) || Host(`www.app.hanz.com.vn`)"
       entryPoints:
         - web-secure
       middlewares:
@@ -42,7 +42,7 @@ http:
         certResolver: letsencrypt
 
     flower-secure-router:
-      rule: "Host(`pms.xhoantran.com`)"
+      rule: "Host(`app.hanz.com.vn`)"
       entryPoints:
         - flower
       service: flower

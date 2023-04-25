@@ -73,9 +73,6 @@ def test_dynamic_pricing_adapter_occupancy_based(
     # No effect because setting is not enabled and already cached
     assert adapter.get_occupancy_based_factor(9) == (1, FactorChoices.MULTIPLIER)
 
-    # Invalidate cache
-    adapter.invalidate_cache()
-
     # Enable availability based
     setting.is_occupancy_based = True
     setting.save()
@@ -167,9 +164,7 @@ def test_dynamic_pricing_adapter_month_based(hotel_factory, month_based_rule_fac
     hotel = hotel_factory()
     setting = hotel.dynamic_pricing_setting
     # today month
-    month_based_rule_factory(
-        month=timezone.localtime().month, setting=setting, multiplier_factor=1.1
-    )
+    rule = month_based_rule_factory(month=timezone.localtime().month, setting=setting)
     adapter = DynamicPricingAdapter(hotel=hotel)
     rule.multiplier_factor = 1.1
     rule.save()
@@ -241,26 +236,21 @@ def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_facto
     hotel = hotel_factory()
     setting = hotel.dynamic_pricing_setting
 
-    current_time = timezone.localtime().time()
-    rule = time_based_rule_factory(
+    current_datetime = timezone.localtime()
+    time_based_rule_factory(
         setting=setting,
-        trigger_time=current_time,
+        trigger_time=current_datetime.time(),
         multiplier_factor=1.1,
         min_occupancy=5,
         max_occupancy=10,
-        is_today=True,
-        is_tomorrow=False,
-        is_active=True,
+        day_ahead=0,
     )
     adapter = DynamicPricingAdapter(hotel=hotel)
-    rule.multiplier_factor = 1.1
-    rule.save()
 
     # No effect because setting is not enabled and already cached
-    assert adapter.get_time_based_factor(current_time, 5) == (
-        1,
-        FactorChoices.MULTIPLIER,
-    )
+    assert adapter.get_time_based_factor(
+        current_datetime.date(), current_datetime, 5
+    ) == (1, FactorChoices.MULTIPLIER)
 
     # Invalidate cache
     adapter.invalidate_cache()
@@ -273,16 +263,48 @@ def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_facto
     adapter.load_from_db()
     assert adapter.is_time_based
     assert len(adapter.time_based_trigger_rules) == 1
-    assert adapter.get_time_based_factor(current_time, 5) == (
-        Decimal("1.1"),
-        FactorChoices.MULTIPLIER,
-    )
+    assert adapter.get_time_based_factor(
+        current_datetime.date(), current_datetime, 5
+    ) == (Decimal("1.1"), FactorChoices.MULTIPLIER)
 
     # Availability out of range
-    assert adapter.get_time_based_factor(current_time, 11) == (
-        1,
-        FactorChoices.MULTIPLIER,
+    assert adapter.get_time_based_factor(
+        current_datetime.date(), current_datetime, 11
+    ) == (1, FactorChoices.MULTIPLIER)
+
+    time_based_rule_factory(
+        setting=setting,
+        trigger_time=(current_datetime - timezone.timedelta(hours=1)).time(),
+        multiplier_factor=1.2,
+        min_occupancy=5,
+        max_occupancy=10,
+        day_ahead=0,
     )
+    adapter.invalidate_cache()
+    adapter.load_from_db()
+    assert adapter.get_time_based_factor(
+        current_datetime.date(), current_datetime, 5
+    ) == (Decimal("1.1"), FactorChoices.MULTIPLIER)
+    with pytest.raises(ValueError):
+        adapter.get_time_based_factor(
+            current_datetime.date() - timezone.timedelta(days=1), current_datetime, 5
+        )
+
+    time_based_rule_factory(
+        setting=setting,
+        trigger_time=(current_datetime - timezone.timedelta(hours=1)).time(),
+        multiplier_factor=1.5,
+        min_occupancy=5,
+        max_occupancy=10,
+        day_ahead=1,
+    )
+    adapter.invalidate_cache()
+    adapter.load_from_db()
+    assert adapter.get_time_based_factor(
+        current_datetime.date() + timezone.timedelta(days=1),
+        current_datetime,
+        5,
+    ) == (Decimal("1.5"), FactorChoices.MULTIPLIER)
 
 
 def test_dynamic_pricing_adapter_calculate_rate(
@@ -299,18 +321,15 @@ def test_dynamic_pricing_adapter_calculate_rate(
     setting.save()
 
     # Create rules
-    occupancy_based_rule_factory(
-        setting=setting,
-        min_occupancy=1,
-        increment_factor=150,
-        multiplier_factor=1,
-    )
+    occupancy_based_rule_factory(setting=setting, min_occupancy=1, increment_factor=150)
     lead_days_based_rule_factory(setting=setting, lead_days=0, multiplier_factor=1.5)
 
+    current_datetime = timezone.localtime()
     adapter = DynamicPricingAdapter(hotel=hotel)
     assert (
         adapter.calculate_rate(
-            date=timezone.localtime().date(),
+            date=current_datetime.date(),
+            current_datetime=current_datetime,
             occupancy=0,
             rate=100,
         )
@@ -318,7 +337,8 @@ def test_dynamic_pricing_adapter_calculate_rate(
     )
     assert (
         adapter.calculate_rate(
-            date=timezone.localtime().date(),
+            date=current_datetime.date(),
+            current_datetime=current_datetime,
             occupancy=1,
             rate=100,
         )

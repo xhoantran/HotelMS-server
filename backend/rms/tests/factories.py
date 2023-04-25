@@ -99,16 +99,12 @@ class TimeBasedTriggerRuleFactory(RuleFactoryFactory):
     trigger_time = Faker("time", pattern="%H:%M:%S")
     min_occupancy = Faker("pyint", min_value=1, max_value=10)
     max_occupancy = LazyAttribute(lambda o: o.min_occupancy + o.occupancy_gap)
-    is_today = True
-    is_tomorrow = False
-    is_active = True
+    day_ahead = Faker(
+        "pyint", min_value=0, max_value=TimeBasedTriggerRule.MAX_DAY_AHEAD
+    )
 
     class Meta:
         model = TimeBasedTriggerRule
 
     class Params:
         occupancy_gap = Faker("pyint", min_value=1, max_value=10)
-        tomorrow = Trait(
-            is_today=False,
-            is_tomorrow=True,
-        )

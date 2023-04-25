@@ -8,7 +8,7 @@ from ..models import Hotel, RatePlan, RoomType
 
 
 class PMSBaseAdapter:
-    def __init__(self, hotel: Hotel | uuid.UUID | str):
+    def __init__(self, hotel: Hotel | uuid.UUID | str | int):
         self.hotel: Hotel = convert_to_obj(hotel, Hotel)
 
     def get_room_types(self, *args, **kwargs):

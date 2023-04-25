@@ -1,3 +1,6 @@
+import uuid
+from datetime import date as date_class
+
 from django.contrib.sites.models import Site
 from django.core.mail import mail_admins
 from django.db.models import Prefetch
@@ -9,6 +12,10 @@ from backend.utils.channex_client import ChannexClient
 
 from ..models import RatePlan, RatePlanRestrictions, RoomType
 from .base import PMSBaseAdapter
+
+
+class ChannexException(Exception):
+    pass
 
 
 class ChannexPMSAdapter(PMSBaseAdapter):
@@ -45,14 +52,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             request_params={"room_type_uuid": room_type_uuid},
             headers={"Authorization": f"Api-Key: {api_key}"},
         )
-        if response.status_code == 422:
-            mail_admins(
-                subject="Channex webhook already exists",
-                message=f"Room type uuid: {room_type_uuid}, "
-                f"room type pms id: {room_type_pms_id}, "
-                f"hotel pms id: {self.hotel.pms_id}",
-            )
-        if response.status_code != 201:
+        if response.status_code != 201 and response.status_code != 422:
             raise Exception(response.json())
 
     def sync_up(self, api_key: str):
@@ -124,8 +124,8 @@ class ChannexPMSAdapter(PMSBaseAdapter):
 
     def _get_synced_rate_plans_restrictions(
         self,
-        room_type_uuid: str,
-        room_type_pms_id: str,
+        room_type_uuid: str | uuid.UUID | list[str] | list[uuid.UUID],
+        room_type_pms_id: str | uuid.UUID,
         start_date: str,
         end_date: str,
     ):
@@ -142,20 +142,41 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             rate_plan_id_map (dict): Rate plan id map
             saved_restrictions (dict): Saved restrictions
         """
-
-        room_type = RoomType.objects.get(uuid=room_type_uuid, pms_id=room_type_pms_id)
-        synced_rate_plans = RatePlan.objects.filter(
-            room_type=room_type
-        ).prefetch_related(
-            Prefetch(
-                "restrictions",
-                queryset=RatePlanRestrictions.objects.filter(
-                    date__gte=start_date,
-                    date__lte=end_date,
-                ),
-                to_attr="filtered_restrictions",
+        if isinstance(room_type_uuid, (str, uuid.UUID)) and isinstance(
+            room_type_pms_id, (str, uuid.UUID)
+        ):
+            synced_rate_plans = RatePlan.objects.filter(
+                room_type__uuid=room_type_uuid,
+                room_type__pms_id=room_type_pms_id,
+                room_type__hotel=self.hotel,
+            ).prefetch_related(
+                Prefetch(
+                    "restrictions",
+                    queryset=RatePlanRestrictions.objects.filter(
+                        date__gte=start_date,
+                        date__lte=end_date,
+                    ),
+                    to_attr="filtered_restrictions",
+                )
             )
-        )
+        elif isinstance(room_type_uuid, list):
+            synced_rate_plans = RatePlan.objects.filter(
+                room_type__uuid__in=room_type_uuid,
+                room_type__hotel=self.hotel,
+            ).prefetch_related(
+                Prefetch(
+                    "restrictions",
+                    queryset=RatePlanRestrictions.objects.filter(
+                        date__gte=start_date,
+                        date__lte=end_date,
+                    ),
+                    to_attr="filtered_restrictions",
+                )
+            )
+        else:
+            raise ChannexException(
+                "Either provide room_type_uuid and room_type_pms_id or just room_type_uuid list"
+            )
 
         rate_plan_id_map = {}
         saved_restrictions = {}
@@ -170,40 +191,53 @@ class ChannexPMSAdapter(PMSBaseAdapter):
 
         return rate_plan_id_map, saved_restrictions
 
-    def _get_restrictions_to_update(
-        self,
-        room_type_uuid: str,
-        payload: list[dict],
-    ) -> tuple[list[dict], list[RatePlanRestrictions]]:
-        # Nothing to update
-        if len(payload) == 0:
-            return [], []
+    def _get_last_inventory_days(self):
+        """
+        Get last inventory days
 
-        # We don't deal with changes that created by inventory_day mechanism
-        inventory_day_date = timezone.localtime() + timezone.timedelta(
-            days=self.hotel.inventory_days - 1
-        )
-        if payload[0]["date"] == inventory_day_date.strftime("%Y-%m-%d"):
-            return [], []
+        Returns:
+            last_inventory_days (int): Last inventory days
+        """
+        return (
+            timezone.localtime()
+            + timezone.timedelta(days=self.hotel.inventory_days - 1)
+        ).strftime("%Y-%m-%d")
 
+    @staticmethod
+    def _get_date_range(payload: list[dict]):
+        """
+        Get date range
+
+        Args:
+            payload (list): Payload
+
+        Returns:
+            date_range (list): Date range
+        """
         date = set()
         for change in payload:
             date.add(change["date"])
-        date_range = sorted(date)
+        return sorted(date)
 
+    def _get_restrictions_to_update(
+        self,
+        room_type_uuid: str | list[str],
+        room_type_pms_id: str | None,
+        sorted_date_range: list[str],
+    ) -> tuple[list[dict], list[RatePlanRestrictions]]:
         # Get rate plan id map and saved restrictions
         rate_plan_id_map, saved_restrictions = self._get_synced_rate_plans_restrictions(
             room_type_uuid=room_type_uuid,
-            room_type_pms_id=payload[0]["room_type_id"],
-            start_date=date_range[0],
-            end_date=date_range[-1],
+            room_type_pms_id=room_type_pms_id,
+            start_date=sorted_date_range[0],
+            end_date=sorted_date_range[-1],
         )
 
         # Get data from Channex
         response = self.client.get_room_type_rate_plan_restrictions(
             property_pms_id=self.hotel.pms_id,
-            date_from=date_range[0],
-            date_to=date_range[-1],
+            date_from=sorted_date_range[0],
+            date_to=sorted_date_range[-1],
             restrictions=["rate", "booked"],
         )
         if response.status_code != 200:
@@ -215,10 +249,11 @@ class ChannexPMSAdapter(PMSBaseAdapter):
 
         restriction_update_to_channex = []
         restriction_create_to_db = []
+        current_datetime = timezone.localtime()
         # Loop through each synced rate plan
         for rate_plan_pms_id, rate_plan_id in rate_plan_id_map.items():
             # Loop through each date
-            for date in date_range:
+            for date in sorted_date_range:
                 original_rate_in_db = date in saved_restrictions[rate_plan_pms_id]
 
                 # If original rate in db, use it, otherwise use channex data
@@ -228,8 +263,9 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                     original_rate = int(channex_data[rate_plan_pms_id][date]["rate"])
 
                 new_rate = self.rms_adapter.calculate_rate(
-                    date=timezone.datetime.strptime(date, "%Y-%m-%d").date(),
                     rate=int(original_rate),
+                    date=timezone.datetime.strptime(date, "%Y-%m-%d").date(),
+                    current_datetime=current_datetime,
                     occupancy=channex_data[rate_plan_pms_id][date]["booked"],
                 )
 
@@ -255,13 +291,22 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                         )
         return restriction_update_to_channex, restriction_create_to_db
 
-    def handle_booked_ari_trigger(self, room_type_uuid: str, payload: dict) -> bool:
+    def handle_booked_ari_trigger(self, room_type_uuid: str, payload: dict):
+        # Nothing to update
+        if len(payload) == 0:
+            return
+
+        # We don't deal with changes that created by inventory_day mechanism
+        if payload[0]["date"] == self._get_last_inventory_days():
+            return
+
         (
             restriction_update_to_channex,
             restriction_create_to_db,
         ) = self._get_restrictions_to_update(
             room_type_uuid=room_type_uuid,
-            payload=payload,
+            room_type_pms_id=payload[0]["room_type_id"],
+            sorted_date_range=self._get_date_range(payload),
         )
         mail_admins(
             "booked Trigger",
@@ -276,5 +321,29 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             if response.status_code != 200:
                 raise Exception(response.json())
             RatePlanRestrictions.objects.bulk_create(restriction_create_to_db)
-            return True
-        return False
+
+    def handle_time_based_trigger(self, date: date_class):
+        room_type_uuid = RoomType.objects.filter(hotel=self.hotel).values_list(
+            "uuid", flat=True
+        )
+        (
+            restriction_update_to_channex,
+            restriction_create_to_db,
+        ) = self._get_restrictions_to_update(
+            room_type_uuid=room_type_uuid,
+            sorted_date_range=[date],
+        )
+        mail_admins(
+            "booked Trigger",
+            f"Restriction update to channex: {restriction_update_to_channex}"
+            f"\nRestriction create to db: {restriction_create_to_db}"
+            f"\nDate: {date}",
+        )
+
+        if len(restriction_update_to_channex) > 0:
+            response = self.client.update_room_type_rate_plan_restrictions(
+                data=restriction_update_to_channex
+            )
+            if response.status_code != 200:
+                raise Exception(response.json())
+            RatePlanRestrictions.objects.bulk_create(restriction_create_to_db)

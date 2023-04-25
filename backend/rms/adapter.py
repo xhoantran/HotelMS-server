@@ -1,5 +1,5 @@
 import math
-from datetime import date as date_class
+from datetime import date, datetime, time
 
 from django.core.cache import cache
 from django.utils import timezone
@@ -123,16 +123,15 @@ class DynamicPricingAdapter:
         self.is_time_based = self.setting.is_time_based
         if self.is_time_based:
             self.time_based_trigger_rules = list(
-                TimeBasedTriggerRule.objects.filter(
-                    setting=self.setting, is_active=True
-                ).values(
+                TimeBasedTriggerRule.objects.filter(setting=self.setting)
+                # Priority is given to the lowest day_ahead and the latest trigger_time
+                .order_by("day_ahead", "-trigger_time").values(
                     "trigger_time",
                     "multiplier_factor",
                     "increment_factor",
                     "min_occupancy",
                     "max_occupancy",
-                    "is_today",
-                    "is_tomorrow",
+                    "day_ahead",
                 )
             )
         else:
@@ -230,7 +229,7 @@ class DynamicPricingAdapter:
             return (factor["multiplier_factor"], FactorChoices.MULTIPLIER)
         return (factor["increment_factor"], FactorChoices.INCREMENT)
 
-    def get_lead_days_based_factor(self, date: timezone.datetime.date) -> float:
+    def get_lead_days_based_factor(self, date: date) -> float:
         """
         Get the lead time based multiplier factor for a given room type and date.
 
@@ -250,7 +249,7 @@ class DynamicPricingAdapter:
             return self._factor_to_repr(self.lead_days_based_rules[-1])
         return self._factor_to_repr(self.lead_days_based_rules[lead_days])
 
-    def get_weekday_based_factor(self, date: timezone.datetime.date) -> float:
+    def get_weekday_based_factor(self, date: date) -> float:
         """
         Get the weekday based multiplier factor for a given date.
 
@@ -264,7 +263,7 @@ class DynamicPricingAdapter:
             return (1, FactorChoices.MULTIPLIER)
         return self._factor_to_repr(self.weekday_based_rules[date.weekday()])
 
-    def get_month_based_factor(self, date: timezone.datetime.date) -> float:
+    def get_month_based_factor(self, date: date | datetime) -> float:
         """
         Get the month based multiplier factor for a given date.
 
@@ -278,7 +277,7 @@ class DynamicPricingAdapter:
             return (1, FactorChoices.MULTIPLIER)
         return self._factor_to_repr(self.month_based_rules[date.month - 1])
 
-    def get_season_based_factor(self, date: timezone.datetime.date) -> float:
+    def get_season_based_factor(self, date: date) -> float:
         """
         Get the season based multiplier factor for a given date.
 
@@ -312,25 +311,53 @@ class DynamicPricingAdapter:
                 return self._factor_to_repr(self.occupancy_based_trigger_rules[i])
         return (1, FactorChoices.MULTIPLIER)
 
-    def get_time_based_factor(self, time: timezone.datetime.time, occupancy: int):
+    @staticmethod
+    def _get_trigger_datetime(
+        date: date, day_ahead: int, trigger_time: time
+    ) -> datetime:
+        return timezone.make_aware(
+            timezone.datetime.combine(
+                date - timezone.timedelta(days=day_ahead),
+                trigger_time,
+            )
+        )
+
+    def get_time_based_factor(
+        self,
+        date: date,
+        current_datetime: datetime,
+        occupancy: int,
+    ) -> float:
         """
-        Get the time based multiplier factor for a given time.
+        Get the time based multiplier factor for a given date and time.
 
         Args:
-            time (time): The time to get the time based multiplier factor for.
+            date (date): The date to get the time based multiplier factor for.
+            current_datetime (datetime): The time to get the time based multiplier factor for.
+            occupancy (int): The occupancy to get the time based multiplier factor for.
 
         Returns:
-            float: The time based multiplier factor for the given time.
+            float: The time based multiplier factor for the given date and time.
         """
-        if not self.is_time_based or time is None:
+        # Skip date in the past
+        lead_days = (date - current_datetime.date()).days
+        if lead_days < 0:
+            raise ValueError("Date must be in the future.")
+        # Early return if not time based or lead days is too large
+        if not self.is_time_based or lead_days > TimeBasedTriggerRule.MAX_DAY_AHEAD:
             return (1, FactorChoices.MULTIPLIER)
         for rule in self.time_based_trigger_rules:
+            trigger_datetime = self._get_trigger_datetime(
+                date, rule["day_ahead"], rule["trigger_time"]
+            )
             if (
-                rule["trigger_time"] == time
+                current_datetime >= trigger_datetime
                 and occupancy >= rule["min_occupancy"]
                 and occupancy <= rule["max_occupancy"]
             ):
                 return self._factor_to_repr(rule)
+        print(self.time_based_trigger_rules)
+
         return (1, FactorChoices.MULTIPLIER)
 
     @staticmethod
@@ -344,17 +371,18 @@ class DynamicPricingAdapter:
 
     def calculate_rate(
         self,
-        date: date_class,
         rate: int,
+        date: date,
+        current_datetime: datetime,  # Use this parameter to avoid timezone.now() in the function
         occupancy: int,
-        time: timezone.datetime.time = None,
     ) -> int:
         """
         Calculate the rate for a given date, rate and occupancy.
 
         Args:
-            date (date_class): The date to calculate the multiplier factor for.
             rate (int): The rate to calculate the multiplier factor for.
+            date (date): The date to calculate the multiplier factor for.
+            current_time (timezone.datetime.time): The time to calculate the multiplier factor for.
             occupancy (int): The occupancy to calculate the multiplier factor for.
 
         Returns:
@@ -366,5 +394,5 @@ class DynamicPricingAdapter:
         factors.append(self.get_month_based_factor(date))
         factors.append(self.get_season_based_factor(date))
         factors.append(self.get_occupancy_based_factor(occupancy))
-        factors.append(self.get_time_based_factor(time, occupancy))
+        factors.append(self.get_time_based_factor(date, current_datetime, occupancy))
         return math.ceil(self._calculate_rate_by_factors(rate, factors))

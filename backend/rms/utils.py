@@ -1,11 +1,11 @@
-from datetime import date as datetype
+from datetime import date as date_class
 from datetime import datetime
 
 
 def is_within_period(
-    start_date: datetype,
-    end_date: datetype,
-    date: datetime | datetype | str,
+    start_date: date_class,
+    end_date: date_class,
+    date: datetime | date_class | str,
 ) -> bool:
     # Convert the strings to datetime objects
     start_date = datetime.strptime(start_date, "%m/%d").date()

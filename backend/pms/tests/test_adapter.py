@@ -223,7 +223,7 @@ class TestChannexPMSAdapter:
         for rate_plan in rate_plans:
             rate_plan_restrictions_factory(rate_plan=rate_plan, date="2020-01-01")
         adapter = ChannexPMSAdapter(room_type.hotel)
-        with django_assert_num_queries(3):
+        with django_assert_num_queries(2):
             (
                 rate_plan_id_map,
                 saved_restrictions,
@@ -237,14 +237,6 @@ class TestChannexPMSAdapter:
             assert len(saved_restrictions) == 10
             for value in saved_restrictions.values():
                 assert len(value) == 1
-
-        with pytest.raises(Exception):
-            adapter._get_synced_rate_plans_restrictions(
-                room_type_uuid=uuid.uuid4(),
-                room_type_pms_id=room_type.pms_id,
-                start_date="2020-01-01",
-                end_date="2020-01-31",
-            )
 
     def test_get_restrictions_to_update(
         self,
@@ -301,43 +293,6 @@ class TestChannexPMSAdapter:
         )
 
         adapter = ChannexPMSAdapter(hotel)
-        a, b = adapter._get_restrictions_to_update(
-            room_type_uuid=uuid.uuid4(),
-            payload=[],
-        )
-        assert a == []
-        assert b == []
-        hotel.inventory_days = 500
-        hotel.save()
-        mocker.patch(
-            "django.utils.timezone.localtime",
-            return_value=timezone.datetime(
-                2023,
-                4,
-                24,
-                0,
-                30,
-                54,
-                645056,
-                tzinfo=zoneinfo.ZoneInfo(key="Asia/Ho_Chi_Minh"),
-            ),
-        )
-        last_date = timezone.datetime(
-            2024,
-            9,
-            4,
-            0,
-            31,
-            21,
-            146832,
-            tzinfo=zoneinfo.ZoneInfo(key="Asia/Ho_Chi_Minh"),
-        )
-        a, b = adapter._get_restrictions_to_update(
-            room_type_uuid=uuid.uuid4(),
-            payload=[{"date": last_date.strftime("%Y-%m-%d")}],
-        )
-        assert a == []
-        assert b == []
 
         # Set up rules
         setting = hotel.dynamic_pricing_setting
@@ -403,12 +358,14 @@ class TestChannexPMSAdapter:
             },
         ]
         room_type = RoomType.objects.filter(hotel=hotel).first()
+
         (
             restriction_update_to_channex,
             restriction_create_to_db,
         ) = adapter._get_restrictions_to_update(
             room_type_uuid=room_type.uuid,
-            payload=payload,
+            room_type_pms_id=room_type.pms_id,
+            sorted_date_range=adapter._get_date_range(payload),
         )
         assert restriction_update_to_channex == [
             {
@@ -438,7 +395,7 @@ class TestChannexPMSAdapter:
         ]
         assert len(restriction_create_to_db) == 2
 
-    def testhandle_booked_ari_trigger(
+    def test_handle_booked_ari_trigger(
         self,
         mocked_channex_validation,
         mocker,
@@ -476,8 +433,37 @@ class TestChannexPMSAdapter:
             return_value=mocker.Mock(status_code=401),
         )
 
-        with pytest.raises(Exception):
-            adapter.handle_booked_ari_trigger(
-                room_type_uuid=uuid.uuid4(),
-                payload=[],
-            )
+        adapter.handle_booked_ari_trigger(room_type_uuid=uuid.uuid4(), payload=[])
+
+        adapter = ChannexPMSAdapter(hotel)
+        hotel.inventory_days = 500
+        hotel.save()
+        mocker.patch(
+            "django.utils.timezone.localtime",
+            return_value=timezone.datetime(
+                2023,
+                4,
+                24,
+                0,
+                30,
+                54,
+                645056,
+                tzinfo=zoneinfo.ZoneInfo(key="Asia/Ho_Chi_Minh"),
+            ),
+        )
+        last_date = timezone.datetime(
+            2024,
+            9,
+            4,
+            0,
+            31,
+            21,
+            146832,
+            tzinfo=zoneinfo.ZoneInfo(key="Asia/Ho_Chi_Minh"),
+        )
+        adapter.handle_booked_ari_trigger(
+            room_type_uuid=uuid.uuid4(),
+            payload=[{"date": last_date.strftime("%Y-%m-%d")}],
+        )
+
+    # def test_handle_time_based_trigger()

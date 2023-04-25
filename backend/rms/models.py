@@ -2,10 +2,9 @@ from datetime import datetime
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django_celery_beat.models import PeriodicTask
 
 from backend.pms.models import Hotel
-
-# from django_celery_beat.models import PeriodicTask
 
 
 class FactorChoices:
@@ -177,22 +176,28 @@ class TimeBasedTriggerRule(RuleFactor):
     trigger_time = models.TimeField()
     min_occupancy = models.SmallIntegerField()
     max_occupancy = models.SmallIntegerField()
-    is_today = models.BooleanField()
-    is_tomorrow = models.BooleanField()
-    is_active = models.BooleanField(default=True)
 
-    # periodic_task = models.OneToOneField(
-    #     PeriodicTask,
-    #     on_delete=models.SET_NULL,
-    #     null=True,
-    #     blank=True,
-    # )
+    class DayAheadChoices(models.IntegerChoices):
+        TODAY = 0, _("Today")
+        TOMORROW = 1, _("Tomorrow")
+
+    MAX_DAY_AHEAD = DayAheadChoices.TOMORROW
+
+    day_ahead = models.SmallIntegerField(
+        choices=DayAheadChoices.choices,
+        default=0,
+    )
+
+    periodic_task = models.OneToOneField(
+        PeriodicTask,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
 
     def save(self, *args, **kwargs):
         if self.min_occupancy > self.max_occupancy:
             raise ValueError("Min occupancy cannot be greater than max occupancy")
-
-        # either today or tomorrow must be true
-        if not bool(self.is_today ^ self.is_tomorrow):
-            raise ValueError("Cannot be both today and tommorow")
+        if self.day_ahead not in self.DayAheadChoices.values:
+            raise ValueError("Invalid day ahead")
         super().save(*args, **kwargs)

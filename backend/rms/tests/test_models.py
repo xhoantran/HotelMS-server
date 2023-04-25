@@ -1,6 +1,19 @@
 import pytest
 
-from ..models import SeasonBasedRule
+from ..models import SeasonBasedRule, TimeBasedTriggerRule
+
+
+def test_rule_factor_save(db, occupancy_based_rule_factory):
+    with pytest.raises(ValueError):
+        occupancy_based_rule_factory(multiplier_factor=-1)
+
+    # Test invalid increment_factor
+    with pytest.raises(ValueError):
+        occupancy_based_rule_factory(increment_factor=-1)
+
+    # Test both multiplier_factor and increment_factor are non-default
+    with pytest.raises(ValueError):
+        occupancy_based_rule_factory(multiplier_factor=2, increment_factor=1)
 
 
 def test_weekday_based_rule_save(db, weekday_based_rule_factory):
@@ -66,19 +79,12 @@ def test_time_based_rule_save(
             min_occupancy=1,
             max_occupancy=0,
         )
-
     with pytest.raises(ValueError):
         time_based_rule_factory(
             setting=setting,
             trigger_time="16:00:00",
             multiplier_factor=1.1,
-            is_today=True,
-            is_tomorrow=True,
-        )
-
-    with pytest.raises(ValueError):
-        time_based_rule_factory(
-            setting=setting,
-            is_today=False,
-            is_tomorrow=False,
+            min_occupancy=0,
+            max_occupancy=1,
+            day_ahead=TimeBasedTriggerRule.MAX_DAY_AHEAD + 1,
         )

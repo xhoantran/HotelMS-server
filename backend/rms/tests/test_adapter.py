@@ -167,7 +167,9 @@ def test_dynamic_pricing_adapter_month_based(hotel_factory, month_based_rule_fac
     hotel = hotel_factory()
     setting = hotel.dynamic_pricing_setting
     # today month
-    rule = month_based_rule_factory(month=timezone.localtime().month, setting=setting)
+    month_based_rule_factory(
+        month=timezone.localtime().month, setting=setting, multiplier_factor=1.1
+    )
     adapter = DynamicPricingAdapter(hotel=hotel)
     rule.multiplier_factor = 1.1
     rule.save()

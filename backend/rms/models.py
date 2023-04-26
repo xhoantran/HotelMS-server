@@ -26,12 +26,6 @@ class DynamicPricingSetting(models.Model):
     is_season_based = models.BooleanField(default=False)
     is_occupancy_based = models.BooleanField(default=False)
     is_time_based = models.BooleanField(default=False)
-    is_up_to_date = models.BooleanField(default=False)
-
-    def save(self, *args, **kwargs):
-        # It will be set non active and only DynamicPricingAdapter can set it True
-        self.is_up_to_date = False
-        super().save(*args, **kwargs)
 
 
 class RuleFactor(models.Model):

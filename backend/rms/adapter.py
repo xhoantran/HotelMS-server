@@ -150,7 +150,6 @@ class DynamicPricingAdapter:
             self.time_based_trigger_rules = []
 
     def activate_rules(self):
-        self.invalidate_cache()
         self.setting = DynamicPricingSetting.objects.get(pk=self.setting.id)
         if self.setting.is_lead_days_based:
             LeadDaysBasedRule.objects.filter(
@@ -182,50 +181,40 @@ class DynamicPricingAdapter:
                 setting=self.setting,
                 is_active=False,
             ).update(is_active=True)
+        self.invalidate_cache(self.setting.id)
 
-    def get_cache_key(self) -> str:
+    @staticmethod
+    def get_cache_key(setting_id) -> str:
         """
         Get the cache key for the dynamic pricing adapter.
 
         Returns:
             str: The cache key for the dynamic pricing adapter.
         """
-        return f"rms:adapter:{self.setting.id}"
+        return f"rms:adapter:{setting_id}"
 
-    def invalidate_cache(self):
+    @staticmethod
+    def invalidate_cache(setting_id):
         """
         Invalidate the cache for the dynamic pricing adapter.
         """
-        cache.delete(self.get_cache_key())
+        cache.delete(DynamicPricingAdapter.get_cache_key(setting_id))
 
     def save_to_cache(self):
         """
         Save the dynamic pricing adapter to the cache.
         """
         cache.set(
-            self.get_cache_key(),
+            self.get_cache_key(self.setting.id),
             {
-                "is_enabled": self.setting.is_enabled,
-                # Lead days based rules
-                "is_lead_days_based": self.setting.is_lead_days_based,
                 "lead_days_based_rules": self.lead_days_based_rules,
-                # Weekday based rules
-                "is_weekday_based": self.setting.is_weekday_based,
                 "weekday_based_rules": self.weekday_based_rules,
-                # Month based rules
-                "is_month_based": self.setting.is_month_based,
                 "month_based_rules": self.month_based_rules,
-                # Season based rules
-                "is_season_based": self.setting.is_season_based,
                 "season_based_rules": self.season_based_rules,
-                # Availability based trigger rules
-                "is_occupancy_based": self.setting.is_occupancy_based,
                 "occupancy_based_trigger_rules": self.occupancy_based_trigger_rules,
-                # Time based trigger rules
-                "is_time_based": self.setting.is_time_based,
                 "time_based_trigger_rules": self.time_based_trigger_rules,
             },
-            timeout=None if self.setting.is_lead_days_based else None,
+            timeout=None,
         )
 
     def load_from_cache(self):
@@ -235,7 +224,7 @@ class DynamicPricingAdapter:
         Returns:
             DynamicPricingAdapter: The dynamic pricing adapter.
         """
-        ret = cache.get(self.get_cache_key())
+        ret = cache.get(self.get_cache_key(self.setting.id))
         if ret is None:
             self.load_from_db()
             self.save_to_cache()

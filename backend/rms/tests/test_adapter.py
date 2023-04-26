@@ -29,8 +29,10 @@ def test_dynamic_pricing_adapter_cache(
         assert adapter.occupancy_based_trigger_rules == db_occupancy_based_trigger_rules
         assert adapter.lead_days_based_rules == db_lead_days_based_rules
         assert adapter.time_based_trigger_rules == db_time_based_trigger_rules
-    adapter.invalidate_cache()
-    assert not cache.get(adapter.get_cache_key())
+    adapter.invalidate_cache(setting_id=hotel.dynamic_pricing_setting.id)
+    assert not cache.get(
+        adapter.get_cache_key(setting_id=hotel.dynamic_pricing_setting.id)
+    )
 
 
 def test_dynamic_pricing_adapter_default():
@@ -154,9 +156,6 @@ def test_dynamic_pricing_adapter_month_based(hotel_factory, month_based_rule_fac
 
     # No effect because is not enabled and rules are not active yet
     assert adapter.get_month_based_factor(1) == (0, FactorChoices.PERCENTAGE)
-
-    # Invalidate cache
-    adapter.invalidate_cache()
 
     # Enable month based
     setting.is_month_based = True

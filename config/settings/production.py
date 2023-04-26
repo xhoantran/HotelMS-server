@@ -115,8 +115,6 @@ EMAIL_SUBJECT_PREFIX = env(
 
 # ADMIN
 # ------------------------------------------------------------------------------
-# Admins list
-ADMINS = [("Hoan Tran", "xhoantran@gmail.com")]
 # Django Admin URL regex.
 ADMIN_URL = env("DJANGO_ADMIN_URL")
 

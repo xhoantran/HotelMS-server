@@ -251,20 +251,22 @@ class DynamicPricingAdapter:
             return (factor["percentage_factor"], FactorChoices.PERCENTAGE)
         return (factor["increment_factor"], FactorChoices.INCREMENT)
 
-    def get_lead_days_based_factor(self, date: date) -> float:
+    def get_lead_days_based_factor(
+        self, date: date, current_datetime: datetime
+    ) -> float:
         """
         Get the lead time based factor for a given room type and date.
 
         Args:
-            room_type (RoomType): The room type to get the lead time based factor for.
             date (date): The date to get the lead time based factor for.
+            current_datetime (datetime): The current datetime.
 
         Returns:
             float: The lead time based factor for the given room type and date.
         """
         if not self.setting.is_lead_days_based:
             return (0, FactorChoices.PERCENTAGE)
-        lead_days = (date - timezone.localtime().date()).days
+        lead_days = (date - current_datetime.date()).days
         if lead_days < 0:
             raise ValueError("Lead time must be positive.")
         if lead_days >= len(self.lead_days_based_rules):
@@ -416,7 +418,7 @@ class DynamicPricingAdapter:
             int: The calculated rate.
         """
         factors = []
-        factors.append(self.get_lead_days_based_factor(date))
+        factors.append(self.get_lead_days_based_factor(date, current_datetime))
         factors.append(self.get_weekday_based_factor(date))
         factors.append(self.get_month_based_factor(date))
         factors.append(self.get_season_based_factor(date))

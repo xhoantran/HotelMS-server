@@ -28,4 +28,4 @@ drf-spectacular==0.26.2  # https://github.com/tfranzel/drf-spectacular
 
 # Planner Optimization
 # ------------------------------------------------------------------------------
-optapy==8.31.1b0 # https://github.com/optapy/optapy
+optapy==9.37.0b0 # https://github.com/optapy/optapy

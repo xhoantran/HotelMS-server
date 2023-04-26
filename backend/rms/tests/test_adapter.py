@@ -3,7 +3,7 @@ from django.core.cache import cache
 from django.utils import timezone
 
 from ..adapter import DynamicPricingAdapter
-from ..models import FactorChoices, LeadDaysBasedRule, TimeBasedTriggerRule
+from ..models import FactorChoices, LeadDaysBasedRule
 
 
 def test_dynamic_pricing_adapter_cache(

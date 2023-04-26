@@ -88,10 +88,12 @@ def test_dynamic_pricing_adapter_lead_days_based(hotel_factory):
     last_rule.percentage_factor = -2
     last_rule.save()
     lead_day_window = setting.lead_day_window
+    current_datetime = timezone.localtime()
 
     # No effect because is not enabled and rules are not active yet
     assert adapter.get_lead_days_based_factor(
-        date=timezone.localtime().date() + timezone.timedelta(days=lead_day_window + 1)
+        date=timezone.localtime().date() + timezone.timedelta(days=lead_day_window + 1),
+        current_datetime=current_datetime,
     ) == (0, FactorChoices.PERCENTAGE)
 
     # Enable lead days based
@@ -103,14 +105,17 @@ def test_dynamic_pricing_adapter_lead_days_based(hotel_factory):
     adapter.load_from_db()
 
     assert adapter.get_lead_days_based_factor(
-        date=timezone.localtime().date() + timezone.timedelta(days=lead_day_window + 1)
+        date=timezone.localtime().date() + timezone.timedelta(days=lead_day_window + 1),
+        current_datetime=current_datetime,
     ) == (-2, FactorChoices.PERCENTAGE)
     with pytest.raises(ValueError):
         adapter.get_lead_days_based_factor(
-            date=timezone.localtime().date() - timezone.timedelta(days=1)
+            date=timezone.localtime().date() - timezone.timedelta(days=1),
+            current_datetime=current_datetime,
         )
     assert adapter.get_lead_days_based_factor(
-        date=timezone.localtime().date() + timezone.timedelta(days=lead_day_window - 1)
+        date=timezone.localtime().date() + timezone.timedelta(days=lead_day_window - 1),
+        current_datetime=current_datetime,
     ) == (0, FactorChoices.PERCENTAGE)
 
 

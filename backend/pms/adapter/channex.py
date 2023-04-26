@@ -50,7 +50,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             callback_url=callback_url,
             event_mask=f"ari:booked:{room_type_pms_id}:*",
             request_params={"room_type_uuid": room_type_uuid},
-            headers={"Authorization": f"Api-Key: {api_key}"},
+            headers={"Authorization": f"Api-Key {api_key}"},
         )
         if response.status_code != 201 and response.status_code != 422:
             raise Exception(response.json())

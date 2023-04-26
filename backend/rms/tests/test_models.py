@@ -10,11 +10,15 @@ def test_rule_factor_save(db, occupancy_based_rule_factory):
     with pytest.raises(ValueError):
         occupancy_based_rule_factory(percentage_factor=2, increment_factor=1)
 
+    with pytest.raises(ValueError):
+        occupancy_based_rule_factory(percentage_factor=0, increment_factor=0)
+
 
 def test_weekday_based_rule_save(db, weekday_based_rule_factory):
     rule = weekday_based_rule_factory(weekday=1)
     assert rule.weekday == 1
 
+    rule.increment_factor = 100000
     rule.weekday = 8
     with pytest.raises(ValueError):
         rule.save()
@@ -27,6 +31,7 @@ def test_weekday_based_rule_save(db, weekday_based_rule_factory):
 def test_month_based_rule_save(db, month_based_rule_factory):
     rule = month_based_rule_factory(month=1)
     assert rule.month == 1
+    rule.increment_factor = 100000
 
     rule.month = 13
     with pytest.raises(ValueError):
@@ -42,12 +47,13 @@ def test_season_based_rule_save(
     season_based_rule_factory,
     dynamic_pricing_setting_factory,
 ):
-    season_based_rule_factory()
+    season_based_rule_factory(percentage_factor=20)
     with pytest.raises(ValueError):
         setting = dynamic_pricing_setting_factory()
         SeasonBasedRule.objects.create(
             setting=setting,
             name="Christmas but invalid...",
+            percentage_factor=20,
             start_month=12,
             start_day=25,
             end_month=12,
@@ -61,11 +67,12 @@ def test_time_based_rule_save(
     dynamic_pricing_setting_factory,
 ):
     setting = dynamic_pricing_setting_factory()
-    time_based_rule_factory(setting=setting)
+    time_based_rule_factory(setting=setting, increment_factor=200000)
     with pytest.raises(ValueError):
         time_based_rule_factory(
             setting=setting,
             trigger_time="16:00:00",
+            increment_factor=200000,
             min_occupancy=1,
             max_occupancy=0,
         )
@@ -73,6 +80,7 @@ def test_time_based_rule_save(
         time_based_rule_factory(
             setting=setting,
             trigger_time="16:00:00",
+            increment_factor=200000,
             min_occupancy=0,
             max_occupancy=1,
             day_ahead=TimeBasedTriggerRule.MAX_DAY_AHEAD + 1,

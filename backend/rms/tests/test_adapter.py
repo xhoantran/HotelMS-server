@@ -180,16 +180,15 @@ def test_dynamic_pricing_adapter_season_based(hotel_factory, season_based_rule_f
     # pick a random season
     start_date = timezone.localtime().date() - timezone.timedelta(days=1)
     end_date = timezone.localtime().date() + timezone.timedelta(days=1)
-    rule = season_based_rule_factory(
+    season_based_rule_factory(
         setting=setting,
         start_day=start_date.day,
         start_month=start_date.month,
         end_day=end_date.day,
         end_month=end_date.month,
+        percentage_factor=10,
     )
     adapter = DynamicPricingAdapter(hotel=hotel, load_setting=False)
-    rule.percentage_factor = 10
-    rule.save()
 
     # No effect because is not enabled and rules are not active yet
     assert adapter.get_season_based_factor(1) == (0, FactorChoices.PERCENTAGE)

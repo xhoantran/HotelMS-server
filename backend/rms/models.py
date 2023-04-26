@@ -49,8 +49,9 @@ class RuleFactor(models.Model):
 
         if self.percentage_factor < -100:
             raise ValueError("Percentage factor cannot be less than -100")
-        if self.percentage_factor != 0 and self.increment_factor != 0:
-            raise ValueError("Percentage and increment cannot be used together")
+
+        if not (bool(self.percentage_factor) ^ bool(self.increment_factor)):
+            raise ValueError("Either percentage factor or increment factor must be set")
         super().save(*args, **kwargs)
 
 

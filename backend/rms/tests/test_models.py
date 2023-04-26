@@ -5,45 +5,36 @@ from ..models import SeasonBasedRule, TimeBasedTriggerRule
 
 def test_rule_factor_save(db, occupancy_based_rule_factory):
     with pytest.raises(ValueError):
-        occupancy_based_rule_factory(multiplier_factor=-1)
+        occupancy_based_rule_factory(percentage_factor=-101)
 
-    # Test invalid increment_factor
     with pytest.raises(ValueError):
-        occupancy_based_rule_factory(increment_factor=-1)
-
-    # Test both multiplier_factor and increment_factor are non-default
-    with pytest.raises(ValueError):
-        occupancy_based_rule_factory(multiplier_factor=2, increment_factor=1)
+        occupancy_based_rule_factory(percentage_factor=2, increment_factor=1)
 
 
 def test_weekday_based_rule_save(db, weekday_based_rule_factory):
     rule = weekday_based_rule_factory(weekday=1)
     assert rule.weekday == 1
-    assert rule.multiplier_factor == 1
 
     rule.weekday = 8
     with pytest.raises(ValueError):
         rule.save()
 
     rule.weekday = 1
-    rule.multiplier_factor = 1.1
     rule.save()
-    assert rule.multiplier_factor == 1.1
+    assert rule.weekday == 1
 
 
 def test_month_based_rule_save(db, month_based_rule_factory):
     rule = month_based_rule_factory(month=1)
     assert rule.month == 1
-    assert rule.multiplier_factor == 1
 
     rule.month = 13
     with pytest.raises(ValueError):
         rule.save()
 
     rule.month = 1
-    rule.multiplier_factor = 1.1
     rule.save()
-    assert rule.multiplier_factor == 1.1
+    assert rule.month == 1
 
 
 def test_season_based_rule_save(
@@ -75,7 +66,6 @@ def test_time_based_rule_save(
         time_based_rule_factory(
             setting=setting,
             trigger_time="16:00:00",
-            multiplier_factor=1.1,
             min_occupancy=1,
             max_occupancy=0,
         )
@@ -83,7 +73,6 @@ def test_time_based_rule_save(
         time_based_rule_factory(
             setting=setting,
             trigger_time="16:00:00",
-            multiplier_factor=1.1,
             min_occupancy=0,
             max_occupancy=1,
             day_ahead=TimeBasedTriggerRule.MAX_DAY_AHEAD + 1,

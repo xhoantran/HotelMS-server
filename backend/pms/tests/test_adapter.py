@@ -311,6 +311,10 @@ class TestChannexPMSAdapter:
             min_occupancy=11,
         )
 
+        # Activate rules
+        adapter.load_rms_adapter()
+        adapter.rms_adapter.activate_rules()
+
         mocker.patch(
             "backend.utils.channex_client.ChannexClient.get_room_type_rate_plan_restrictions",
             return_value=mocker.Mock(
@@ -466,4 +470,45 @@ class TestChannexPMSAdapter:
             payload=[{"date": last_date.strftime("%Y-%m-%d")}],
         )
 
-    # def test_handle_time_based_trigger()
+    def test_handle_time_based_trigger(
+        self,
+        mocker,
+        mocked_channex_validation,
+        hotel_factory,
+        room_type_factory,
+        rate_plan_factory,
+    ):
+        hotel = hotel_factory(channex=True)
+        room_type = room_type_factory(hotel=hotel)
+        rate_plan = rate_plan_factory(room_type=room_type)
+        adapter = ChannexPMSAdapter(hotel)
+        mocker.patch(
+            "backend.pms.adapter.channex.ChannexPMSAdapter._get_restrictions_to_update",
+            return_value=([], []),
+        )
+        adapter.handle_time_based_trigger(date=timezone.localtime().date())
+        mocker_get_restrictions = mocker.patch(
+            "backend.pms.adapter.channex.ChannexPMSAdapter._get_restrictions_to_update",
+            return_value=(
+                [{}],
+                [
+                    RatePlanRestrictions(
+                        rate_plan=rate_plan,
+                        date=timezone.localtime().date(),
+                        rate=100000,
+                    )
+                ],
+            ),
+        )
+        mocker_update_room = mocker.patch(
+            "backend.utils.channex_client.ChannexClient.update_room_type_rate_plan_restrictions",
+            return_value=mocker.Mock(status_code=200),
+        )
+        adapter.handle_time_based_trigger(date=timezone.localtime().date())
+        mocker_get_restrictions.assert_called_once()
+        mocker_update_room.assert_called_once()
+        assert RatePlanRestrictions.objects.filter(
+            rate_plan=rate_plan,
+            date=timezone.localtime().date(),
+            rate=100000,
+        ).exists()

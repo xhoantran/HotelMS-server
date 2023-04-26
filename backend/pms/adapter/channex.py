@@ -309,7 +309,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             sorted_date_range=self._get_date_range(payload),
         )
         mail_admins(
-            "booked Trigger",
+            "Occupancy Trigger",
             f"Restriction update to channex: {restriction_update_to_channex}"
             f"\nRestriction create to db: {restriction_create_to_db}"
             f"\nPayload: {payload}",
@@ -331,10 +331,10 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             restriction_create_to_db,
         ) = self._get_restrictions_to_update(
             room_type_uuid=room_type_uuid,
-            sorted_date_range=[date],
+            sorted_date_range=[date.strftime("%Y-%m-%d")],
         )
         mail_admins(
-            "booked Trigger",
+            "Time Trigger",
             f"Restriction update to channex: {restriction_update_to_channex}"
             f"\nRestriction create to db: {restriction_create_to_db}"
             f"\nDate: {date}",

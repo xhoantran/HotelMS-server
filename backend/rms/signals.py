@@ -1,12 +1,16 @@
+import json
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
+from django_celery_beat.models import CrontabSchedule, PeriodicTask
 
-from .adapter import DynamicPricingAdapter
 from .models import (
     DynamicPricingSetting,
     Hotel,
     LeadDaysBasedRule,
     MonthBasedRule,
+    TimeBasedTriggerRule,
     WeekdayBasedRule,
 )
 
@@ -39,11 +43,41 @@ def post_save_hotel(sender, instance: Hotel, created, **kwargs):
 
 @receiver(
     post_save,
-    sender=DynamicPricingSetting,
-    dispatch_uid="rms:post_save_dynamic_pricing_setting",
+    sender=TimeBasedTriggerRule,
+    dispatch_uid="rms:post_save_time_based_trigger_rule",
 )
-def post_save_dynamic_pricing_setting(
-    sender, instance: DynamicPricingSetting, created, **kwargs
+def post_save_time_based_trigger_rule(
+    sender, instance: TimeBasedTriggerRule, created, **kwargs
 ):
-    if not created:
-        DynamicPricingAdapter(setting=instance).invalidate_cache()
+    if created:
+        periodic_task = PeriodicTask(
+            name=instance.id,
+            task="rms.tasks.handle_time_based_trigger_rule",
+            start_time=timezone.now(),
+        )
+    else:
+        periodic_task = instance.periodic_task
+
+    if isinstance(instance.trigger_time, str):
+        instance.trigger_time = timezone.datetime.strptime(
+            instance.trigger_time, "%H:%M:%S"
+        ).time()
+
+    # When the trigger time is changed, update
+    crontab, _ = CrontabSchedule.objects.get_or_create(
+        minute=instance.trigger_time.minute,
+        hour=instance.trigger_time.hour,
+        day_of_week="*",
+        day_of_month="*",
+        month_of_year="*",
+    )
+
+    periodic_task.crontab = crontab
+    periodic_task.kwargs = json.dumps(
+        {
+            "hotel_id": instance.setting.hotel.id,
+            "day_ahead": instance.day_ahead,
+        }
+    )
+    periodic_task.enabled = instance.is_active
+    periodic_task.save()

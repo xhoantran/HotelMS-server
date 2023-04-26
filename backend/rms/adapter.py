@@ -21,7 +21,10 @@ from .utils import is_within_period
 
 class DynamicPricingAdapter:
     def __init__(
-        self, hotel: Hotel | str | int = None, setting: DynamicPricingSetting = None
+        self,
+        hotel: Hotel | str | int = None,
+        setting: DynamicPricingSetting = None,
+        load_setting: bool = True,
     ):
         """
         Initialize the dynamic pricing adapter.
@@ -31,18 +34,16 @@ class DynamicPricingAdapter:
         """
         if isinstance(setting, DynamicPricingSetting):
             self.setting = setting
-
-        elif (
-            isinstance(hotel, Hotel) or isinstance(hotel, str) or isinstance(hotel, int)
-        ):
+        elif isinstance(hotel, (Hotel, str, int)):
             self.setting: DynamicPricingSetting = DynamicPricingSetting.objects.get(
                 hotel=hotel
             )
         else:
             raise ValueError("Must provide either a hotel or a setting")
-        self.load_from_cache()
+        if load_setting:
+            self.load_from_cache()
 
-    def load_from_db(self: str):
+    def load_from_db(self):
         """
         Load the dynamic pricing adapter from the database.
 
@@ -50,49 +51,56 @@ class DynamicPricingAdapter:
             DynamicPricingAdapter: The dynamic pricing adapter.
         """
         self.setting = DynamicPricingSetting.objects.get(pk=self.setting.id)
-        self.is_enabled = self.setting.is_enabled
         # Lead days based rules
-        self.is_lead_days_based = self.setting.is_lead_days_based
-        if self.is_lead_days_based:
+        if self.setting.is_lead_days_based:
             self.lead_days_based_rules = list(
-                LeadDaysBasedRule.objects.filter(setting=self.setting)
+                LeadDaysBasedRule.objects.filter(
+                    setting=self.setting,
+                    is_active=True,
+                )
                 .order_by("lead_days")
-                .values("multiplier_factor", "increment_factor")
+                .values("percentage_factor", "increment_factor")
             )
         else:
             self.lead_days_based_rules = []
         # Weekday based rules
-        self.is_weekday_based = self.setting.is_weekday_based
-        if self.is_weekday_based:
+        if self.setting.is_weekday_based:
             self.weekday_based_rules = list(
-                WeekdayBasedRule.objects.filter(setting=self.setting)
+                WeekdayBasedRule.objects.filter(
+                    setting=self.setting,
+                    is_active=True,
+                )
                 .order_by("weekday")
-                .values("multiplier_factor", "increment_factor")
+                .values("percentage_factor", "increment_factor")
             )
         else:
             self.weekday_based_rules = []
         # Month based rules
-        self.is_month_based = self.setting.is_month_based
-        if self.is_month_based:
+        if self.setting.is_month_based:
             self.month_based_rules = list(
-                MonthBasedRule.objects.filter(setting=self.setting)
+                MonthBasedRule.objects.filter(
+                    setting=self.setting,
+                    is_active=True,
+                )
                 .order_by("month")
-                .values("multiplier_factor", "increment_factor")
+                .values("percentage_factor", "increment_factor")
             )
         else:
             self.month_based_rules = []
         # Season based rules
-        self.is_season_based = self.setting.is_season_based
-        if self.is_season_based:
+        if self.setting.is_season_based:
             season_based_rules = (
-                SeasonBasedRule.objects.filter(setting=self.setting)
+                SeasonBasedRule.objects.filter(
+                    setting=self.setting,
+                    is_active=True,
+                )
                 .order_by("name")
                 .values(
                     "start_month",
                     "start_day",
                     "end_month",
                     "end_day",
-                    "multiplier_factor",
+                    "percentage_factor",
                     "increment_factor",
                 )
             )
@@ -100,7 +108,7 @@ class DynamicPricingAdapter:
                 {
                     "start_date": f"{rule['start_month']}/{rule['start_day']}",
                     "end_date": f"{rule['end_month']}/{rule['end_day']}",
-                    "multiplier_factor": rule["multiplier_factor"],
+                    "percentage_factor": rule["percentage_factor"],
                     "increment_factor": rule["increment_factor"],
                 }
                 for rule in season_based_rules
@@ -108,26 +116,30 @@ class DynamicPricingAdapter:
         else:
             self.season_based_rules = []
         # Availability based trigger rules
-        self.is_occupancy_based = self.setting.is_occupancy_based
-        if self.is_occupancy_based:
+        if self.setting.is_occupancy_based:
             # order_by is used to make sure that the rules are applied
             # will be applied in the correct order, max -> min
             self.occupancy_based_trigger_rules = list(
-                OccupancyBasedTriggerRule.objects.filter(setting=self.setting)
+                OccupancyBasedTriggerRule.objects.filter(
+                    setting=self.setting,
+                    is_active=True,
+                )
                 .order_by("-min_occupancy")
-                .values("min_occupancy", "increment_factor", "multiplier_factor")
+                .values("min_occupancy", "increment_factor", "percentage_factor")
             )
         else:
             self.occupancy_based_trigger_rules = []
         # Time based trigger rules
-        self.is_time_based = self.setting.is_time_based
-        if self.is_time_based:
+        if self.setting.is_time_based:
             self.time_based_trigger_rules = list(
-                TimeBasedTriggerRule.objects.filter(setting=self.setting)
+                TimeBasedTriggerRule.objects.filter(
+                    setting=self.setting,
+                    is_active=True,
+                )
                 # Priority is given to the lowest day_ahead and the latest trigger_time
                 .order_by("day_ahead", "-trigger_time").values(
                     "trigger_time",
-                    "multiplier_factor",
+                    "percentage_factor",
                     "increment_factor",
                     "min_occupancy",
                     "max_occupancy",
@@ -137,7 +149,41 @@ class DynamicPricingAdapter:
         else:
             self.time_based_trigger_rules = []
 
-    def get_cache_key(self: str) -> str:
+    def activate_rules(self):
+        self.invalidate_cache()
+        self.setting = DynamicPricingSetting.objects.get(pk=self.setting.id)
+        if self.setting.is_lead_days_based:
+            LeadDaysBasedRule.objects.filter(
+                setting=self.setting,
+                is_active=False,
+            ).update(is_active=True)
+        if self.setting.is_weekday_based:
+            WeekdayBasedRule.objects.filter(
+                setting=self.setting,
+                is_active=False,
+            ).update(is_active=True)
+        if self.setting.is_month_based:
+            MonthBasedRule.objects.filter(
+                setting=self.setting,
+                is_active=False,
+            ).update(is_active=True)
+        if self.setting.is_season_based:
+            SeasonBasedRule.objects.filter(
+                setting=self.setting,
+                is_active=False,
+            ).update(is_active=True)
+        if self.setting.is_occupancy_based:
+            OccupancyBasedTriggerRule.objects.filter(
+                setting=self.setting,
+                is_active=False,
+            ).update(is_active=True)
+        if self.setting.is_time_based:
+            TimeBasedTriggerRule.objects.filter(
+                setting=self.setting,
+                is_active=False,
+            ).update(is_active=True)
+
+    def get_cache_key(self) -> str:
         """
         Get the cache key for the dynamic pricing adapter.
 
@@ -146,7 +192,7 @@ class DynamicPricingAdapter:
         """
         return f"rms:adapter:{self.setting.id}"
 
-    def invalidate_cache(self: str):
+    def invalidate_cache(self):
         """
         Invalidate the cache for the dynamic pricing adapter.
         """
@@ -194,24 +240,11 @@ class DynamicPricingAdapter:
             self.load_from_db()
             self.save_to_cache()
         else:
-            self.is_enabled = ret["is_enabled"]
-            # Lead days based rules
-            self.is_lead_days_based = ret["is_lead_days_based"]
             self.lead_days_based_rules = ret["lead_days_based_rules"]
-            # Weekday based rules
-            self.is_weekday_based = ret["is_weekday_based"]
             self.weekday_based_rules = ret["weekday_based_rules"]
-            # Month based rules
-            self.is_month_based = ret["is_month_based"]
             self.month_based_rules = ret["month_based_rules"]
-            # Season based rules
-            self.is_season_based = ret["is_season_based"]
             self.season_based_rules = ret["season_based_rules"]
-            # Availability based trigger rules
-            self.is_occupancy_based = ret["is_occupancy_based"]
             self.occupancy_based_trigger_rules = ret["occupancy_based_trigger_rules"]
-            # Time based trigger rules
-            self.is_time_based = ret["is_time_based"]
             self.time_based_trigger_rules = ret["time_based_trigger_rules"]
 
     @staticmethod
@@ -226,22 +259,22 @@ class DynamicPricingAdapter:
             tuple[float|int, int]: The converted factor.
         """
         if factor["increment_factor"] == 0:
-            return (factor["multiplier_factor"], FactorChoices.MULTIPLIER)
+            return (factor["percentage_factor"], FactorChoices.PERCENTAGE)
         return (factor["increment_factor"], FactorChoices.INCREMENT)
 
     def get_lead_days_based_factor(self, date: date) -> float:
         """
-        Get the lead time based multiplier factor for a given room type and date.
+        Get the lead time based factor for a given room type and date.
 
         Args:
-            room_type (RoomType): The room type to get the lead time based multiplier factor for.
-            date (date): The date to get the lead time based multiplier factor for.
+            room_type (RoomType): The room type to get the lead time based factor for.
+            date (date): The date to get the lead time based factor for.
 
         Returns:
-            float: The lead time based multiplier factor for the given room type and date.
+            float: The lead time based factor for the given room type and date.
         """
-        if not self.is_lead_days_based:
-            return (1, FactorChoices.MULTIPLIER)
+        if not self.setting.is_lead_days_based:
+            return (0, FactorChoices.PERCENTAGE)
         lead_days = (date - timezone.localtime().date()).days
         if lead_days < 0:
             raise ValueError("Lead time must be positive.")
@@ -251,65 +284,67 @@ class DynamicPricingAdapter:
 
     def get_weekday_based_factor(self, date: date) -> float:
         """
-        Get the weekday based multiplier factor for a given date.
+        Get the weekday based factor for a given date.
 
         Args:
-            date (date): The date to get the weekday based multiplier factor for.
+            date (date): The date to get the weekday based factor for.
 
         Returns:
-            float: The weekday based multiplier factor for the given date.
+            float: The weekday based factor for the given date.
         """
-        if not self.is_weekday_based:
-            return (1, FactorChoices.MULTIPLIER)
+        if not self.setting.is_weekday_based:
+            return (0, FactorChoices.PERCENTAGE)
         return self._factor_to_repr(self.weekday_based_rules[date.weekday()])
 
     def get_month_based_factor(self, date: date | datetime) -> float:
         """
-        Get the month based multiplier factor for a given date.
+        Get the month based factor for a given date.
 
         Args:
-            date (date): The date to get the month based multiplier factor for.
+            date (date): The date to get the month based factor for.
 
         Returns:
-            float: The month based multiplier factor for the given date.
+            float: The month based factor for the given date.
         """
-        if not self.is_month_based:
-            return (1, FactorChoices.MULTIPLIER)
+        if not self.setting.is_month_based:
+            return (0, FactorChoices.PERCENTAGE)
         return self._factor_to_repr(self.month_based_rules[date.month - 1])
 
     def get_season_based_factor(self, date: date) -> float:
         """
-        Get the season based multiplier factor for a given date.
+        Get the season based factor for a given date.
 
         Args:
-            date (date): The date to get the season based multiplier factor for.
+            date (date): The date to get the season based factor for.
 
         Returns:
-            float: The season based multiplier factor for the given date.
+            float: The season based factor for the given date.
         """
-        if not self.is_season_based:
-            return (1, FactorChoices.MULTIPLIER)
+        if not self.setting.is_season_based:
+            return (0, FactorChoices.PERCENTAGE)
         for rule in self.season_based_rules:
             if is_within_period(rule["start_date"], rule["end_date"], date):
                 return self._factor_to_repr(rule)
-        return (1, FactorChoices.MULTIPLIER)
+        return (0, FactorChoices.PERCENTAGE)
 
     def get_occupancy_based_factor(self, occupancy: int) -> tuple[int | float, int]:
         """
-        Get the occupancy based multiplier factor for a given occupancy.
+        Get the occupancy based factor for a given occupancy.
 
         Args:
-            occupancy (int): The occupancy to get the occupancy based multiplier factor for.
-            rate (int): The rate to get the occupancy based multiplier factor for.
+            occupancy (int): The occupancy to get the occupancy based factor for.
+            rate (int): The rate to get the occupancy based factor for.
 
         Returns:
-            int | float: The occupancy based increment factor or multiplier factor for the given occupancy.
-            int: The occupancy based increment factor or multiplier factor for the given occupancy.
+            int | float: The occupancy based factor for the given occupancy.
+            int: The occupancy based factor for the given occupancy.
         """
+        if not self.setting.is_occupancy_based:
+            return (0, FactorChoices.PERCENTAGE)
         for i in range(len(self.occupancy_based_trigger_rules)):
             if occupancy >= self.occupancy_based_trigger_rules[i]["min_occupancy"]:
                 return self._factor_to_repr(self.occupancy_based_trigger_rules[i])
-        return (1, FactorChoices.MULTIPLIER)
+        return (0, FactorChoices.PERCENTAGE)
 
     @staticmethod
     def _get_trigger_datetime(
@@ -344,8 +379,11 @@ class DynamicPricingAdapter:
         if lead_days < 0:
             raise ValueError("Date must be in the future.")
         # Early return if not time based or lead days is too large
-        if not self.is_time_based or lead_days > TimeBasedTriggerRule.MAX_DAY_AHEAD:
-            return (1, FactorChoices.MULTIPLIER)
+        if (
+            not self.setting.is_time_based
+            or lead_days > TimeBasedTriggerRule.MAX_DAY_AHEAD
+        ):
+            return (0, FactorChoices.PERCENTAGE)
         for rule in self.time_based_trigger_rules:
             trigger_datetime = self._get_trigger_datetime(
                 date, rule["day_ahead"], rule["trigger_time"]
@@ -356,18 +394,18 @@ class DynamicPricingAdapter:
                 and occupancy <= rule["max_occupancy"]
             ):
                 return self._factor_to_repr(rule)
-        print(self.time_based_trigger_rules)
-
-        return (1, FactorChoices.MULTIPLIER)
+        return (0, FactorChoices.PERCENTAGE)
 
     @staticmethod
     def _calculate_rate_by_factors(rate: int, factors: list[tuple[int | float, int]]):
+        percentage_sum = 0
+        increment_sum = 0
         for factor in factors:
-            if factor[1] == FactorChoices.INCREMENT:
-                rate += factor[0]
+            if factor[1] == FactorChoices.PERCENTAGE:
+                percentage_sum += factor[0]
             else:
-                rate *= factor[0]
-        return rate
+                increment_sum += factor[0]
+        return math.ceil(rate * (1 + percentage_sum / 100)) + increment_sum
 
     def calculate_rate(
         self,
@@ -395,4 +433,4 @@ class DynamicPricingAdapter:
         factors.append(self.get_season_based_factor(date))
         factors.append(self.get_occupancy_based_factor(occupancy))
         factors.append(self.get_time_based_factor(date, current_datetime, occupancy))
-        return math.ceil(self._calculate_rate_by_factors(rate, factors))
+        return self._calculate_rate_by_factors(rate, factors)

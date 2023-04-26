@@ -8,7 +8,7 @@ from backend.pms.models import Hotel
 
 
 class FactorChoices:
-    MULTIPLIER = 0
+    PERCENTAGE = 0
     INCREMENT = 1
 
 
@@ -26,22 +26,31 @@ class DynamicPricingSetting(models.Model):
     is_season_based = models.BooleanField(default=False)
     is_occupancy_based = models.BooleanField(default=False)
     is_time_based = models.BooleanField(default=False)
+    is_up_to_date = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        # It will be set non active and only DynamicPricingAdapter can set it True
+        self.is_up_to_date = False
+        super().save(*args, **kwargs)
 
 
 class RuleFactor(models.Model):
-    multiplier_factor = models.DecimalField(max_digits=3, decimal_places=2, default=1)
+    percentage_factor = models.SmallIntegerField(default=0)
     increment_factor = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=False)
 
     class Meta:
         abstract = True
 
     def save(self, *args, **kwargs):
-        if self.multiplier_factor < 0:
-            raise ValueError("Multiplier factor must be positive")
-        if self.increment_factor < 0:
-            raise ValueError("Increment factor must be positive")
-        if self.multiplier_factor != 1 and self.increment_factor != 0:
-            raise ValueError("Multiplier and increment cannot be used together")
+        # It will be set non active and only DynamicPricingAdapter can set it True
+        # by calling method activate_rules()
+        self.is_active = False
+
+        if self.percentage_factor < -100:
+            raise ValueError("Percentage factor cannot be less than -100")
+        if self.percentage_factor != 0 and self.increment_factor != 0:
+            raise ValueError("Percentage and increment cannot be used together")
         super().save(*args, **kwargs)
 
 
@@ -201,3 +210,8 @@ class TimeBasedTriggerRule(RuleFactor):
         if self.day_ahead not in self.DayAheadChoices.values:
             raise ValueError("Invalid day ahead")
         super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.periodic_task:
+            self.periodic_task.delete()
+        super().delete(*args, **kwargs)

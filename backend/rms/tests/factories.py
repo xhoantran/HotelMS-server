@@ -32,13 +32,11 @@ class RuleFactoryFactory(DjangoModelFactory):
     class Params:
         multiplier = Trait(
             increment_factor=0,
-            multiplier_factor=Faker(
-                "pydecimal", left_digits=1, right_digits=1, positive=True
-            ),
+            percentage_factor=Faker("pyint", min_value=-50, max_value=50, step=5),
         )
         increment = Trait(
             increment_factor=Faker("pyint", min_value=50, max_value=500),
-            multiplier_factor=1,
+            percentage_factor=0,
         )
 
     class Meta:

@@ -1,5 +1,6 @@
 from django.apps import apps
 from django.contrib import admin
+from django.db.models.query import QuerySet
 
 from .models import Hotel, HotelAPIKey, RatePlan, RoomType
 
@@ -9,7 +10,7 @@ for model in apps.get_models():
 
 
 @admin.action(description="Sync with Channex")
-def sync_with_channex(modeladmin, request, queryset):
+def sync_with_channex(modeladmin, request, queryset: QuerySet[Hotel]):
     for hotel in queryset:
         if hotel.pms == Hotel.PMSChoices.CHANNEX:
             HotelAPIKey.objects.get(hotel=hotel).delete()

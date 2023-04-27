@@ -144,7 +144,6 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             rate_plan_id_map (dict): Rate plan id map
             saved_restrictions (dict): Saved restrictions
         """
-        print(room_type_uuid, room_type_pms_id, start_date, end_date)
         if isinstance(room_type_uuid, (str, uuid.UUID)) and isinstance(
             room_type_pms_id, (str, uuid.UUID)
         ):

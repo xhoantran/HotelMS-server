@@ -184,7 +184,8 @@ def test_channex_availability_callback_api_view(
         {"event": "ari", "payload": [], "user_id": None},
         format="json",
     )
-    assert response.status_code == status.HTTP_200_OK
+    # No pms_id
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     response = client.post(
         url,
@@ -195,7 +196,12 @@ def test_channex_availability_callback_api_view(
 
     response = client.post(
         url,
-        {"event": "ari", "payload": [], "user_id": "test"},
+        {
+            "event": "ari",
+            "payload": [],
+            "user_id": "test",
+            "property_id": hotel.pms_id,
+        },
         format="json",
     )
     assert response.status_code == status.HTTP_200_OK

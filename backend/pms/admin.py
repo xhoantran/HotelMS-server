@@ -19,6 +19,7 @@ def sync_with_channex(modeladmin, request, queryset: QuerySet[Hotel]):
 
 
 class HotelAdmin(admin.ModelAdmin):
+    list_display = ("name", "pms", "pms_id")
     actions = [sync_with_channex]
 
 

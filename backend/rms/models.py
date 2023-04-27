@@ -31,6 +31,9 @@ class DynamicPricingSetting(models.Model):
     is_occupancy_based = models.BooleanField(default=False)
     is_time_based = models.BooleanField(default=False)
 
+    def __str__(self) -> str:
+        return f"{self.hotel.name} - DPS"
+
 
 class RuleFactor(models.Model):
     percentage_factor = models.SmallIntegerField(default=0)

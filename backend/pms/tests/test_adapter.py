@@ -145,17 +145,37 @@ class TestChannexPMSAdapter:
         hotel_factory,
     ):
         mocker.patch(
-            "backend.utils.channex_client.ChannexClient.get_rate_plans",
+            "backend.utils.channex_client.ChannexClient._get_room_types",
             return_value=mocker.Mock(
                 status_code=200,
                 json=mocker.Mock(
-                    # Removed unnecessary fields
+                    return_value={
+                        "data": [
+                            {
+                                "attributes": {
+                                    "id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+                                    "title": "Double Room",
+                                },
+                                "id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+                                "type": "room_type",
+                            }
+                        ]
+                    }
+                ),
+            ),
+        )
+        mocker.patch(
+            "backend.utils.channex_client.ChannexClient._get_rate_plans",
+            return_value=mocker.Mock(
+                status_code=200,
+                json=mocker.Mock(
                     return_value={
                         "data": [
                             {
                                 "attributes": {
                                     "id": "3285e794-c11e-4089-9a3b-77294a85c2c5",
                                     "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+                                    "title": "Standard Rate",
                                 },
                                 "id": "3285e794-c11e-4089-9a3b-77294a85c2c5",
                                 "type": "rate_plan",
@@ -164,6 +184,7 @@ class TestChannexPMSAdapter:
                                 "attributes": {
                                     "id": "dd1e2ead-b503-4289-a57e-ad51184fafbe",
                                     "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+                                    "title": "Non Refundable Rate",
                                 },
                                 "id": "dd1e2ead-b503-4289-a57e-ad51184fafbe",
                                 "type": "rate_plan",
@@ -172,6 +193,7 @@ class TestChannexPMSAdapter:
                                 "attributes": {
                                     "id": "0c9a0fba-71f3-4da4-af98-f9f036923dd8",
                                     "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+                                    "title": "Non Refundable Rate",
                                 },
                                 "id": "0c9a0fba-71f3-4da4-af98-f9f036923dd8",
                                 "type": "rate_plan",
@@ -186,7 +208,7 @@ class TestChannexPMSAdapter:
         assert RatePlan.objects.filter(room_type__hotel=hotel).count() == 3
 
         mocker.patch(
-            "backend.utils.channex_client.ChannexClient.get_rate_plans",
+            "backend.utils.channex_client.ChannexClient._get_rate_plans",
             return_value=mocker.Mock(
                 status_code=401,
                 json=mocker.Mock(
@@ -246,7 +268,27 @@ class TestChannexPMSAdapter:
         occupancy_based_rule_factory,
     ):
         mocker.patch(
-            "backend.utils.channex_client.ChannexClient.get_rate_plans",
+            "backend.utils.channex_client.ChannexClient._get_room_types",
+            return_value=mocker.Mock(
+                status_code=200,
+                json=mocker.Mock(
+                    return_value={
+                        "data": [
+                            {
+                                "attributes": {
+                                    "id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+                                    "title": "Standard Room",
+                                },
+                                "id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+                                "type": "room_type",
+                            }
+                        ]
+                    }
+                ),
+            ),
+        )
+        mocker.patch(
+            "backend.utils.channex_client.ChannexClient._get_rate_plans",
             return_value=mocker.Mock(
                 status_code=200,
                 json=mocker.Mock(
@@ -257,6 +299,7 @@ class TestChannexPMSAdapter:
                                 "attributes": {
                                     "id": "3285e794-c11e-4089-9a3b-77294a85c2c5",
                                     "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+                                    "title": "Standard Rate",
                                 },
                                 "id": "3285e794-c11e-4089-9a3b-77294a85c2c5",
                                 "type": "rate_plan",
@@ -265,6 +308,7 @@ class TestChannexPMSAdapter:
                                 "attributes": {
                                     "id": "dd1e2ead-b503-4289-a57e-ad51184fafbe",
                                     "room_type_id": "877d2bd2-74a0-4d77-ad1c-a69ae0cee94d",
+                                    "title": "Non Refundable Rate",
                                 },
                                 "id": "dd1e2ead-b503-4289-a57e-ad51184fafbe",
                                 "type": "rate_plan",

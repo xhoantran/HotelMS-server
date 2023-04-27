@@ -3,7 +3,7 @@ from datetime import date as date_class
 
 from django.contrib.sites.models import Site
 from django.core.mail import mail_admins
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.db.models.query import QuerySet
 from django.urls import reverse
 from django.utils import timezone
@@ -66,26 +66,29 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         self.hotel.save(update_fields=["inventory_days"])
 
         # Get room types and rate plans
-        response = self.client.get_rate_plans(property_id=self.hotel.pms_id)
-        if response.status_code != 200:
-            raise Exception(response.json())
-        data = response.json().get("data")
-        room_type_pms_ids = set()
+        data = self.client.get_room_types(property_id=self.hotel.pms_id)
+        room_type_pms_ids = []
         room_type_objects = []
 
         # Create room types
-        for rate_plan in data:
-            if rate_plan["attributes"]["room_type_id"] not in room_type_pms_ids:
-                room_type_objects.append(
-                    RoomType(
-                        pms_id=rate_plan["attributes"]["room_type_id"],
-                        hotel=self.hotel,
-                    )
+        for room_type in data:
+            room_type_objects.append(
+                RoomType(
+                    name=room_type["attributes"]["title"],
+                    pms_id=room_type["id"],
+                    hotel=self.hotel,
                 )
-                room_type_pms_ids.add(rate_plan["attributes"]["room_type_id"])
+            )
+            room_type_pms_ids.append(room_type["id"])
         room_types = RoomType.objects.bulk_create(
-            room_type_objects, ignore_conflicts=True
+            room_type_objects,
+            update_conflicts=True,
+            update_fields=["name"],
+            unique_fields=["pms_id", "hotel"],
         )
+        RoomType.objects.filter(
+            ~Q(pms_id__in=room_type_pms_ids) & Q(hotel=self.hotel)
+        ).delete()
 
         # If hotel has room types, start creating rate plans
         if len(room_types) > 0:
@@ -109,11 +112,16 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                     callback_url=f"https://{current_site.domain}{reverse('pms:channex-availability-callback')}",
                 )
 
+            # Get rate plans
+            data = self.client.get_rate_plans(property_id=self.hotel.pms_id)
+
             # Create rate plans
+            rate_plan_pms_ids = []
             rate_plan_objects = []
             for rate_plan in data:
                 rate_plan_objects.append(
                     RatePlan(
+                        name=rate_plan["attributes"]["title"],
                         pms_id=rate_plan["id"],
                         # using room_type_id_map to get the id of the room type
                         room_type_id=room_type_id_map[
@@ -121,7 +129,16 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                         ],
                     )
                 )
-            RatePlan.objects.bulk_create(rate_plan_objects, ignore_conflicts=True)
+                rate_plan_pms_ids.append(rate_plan["id"])
+            RatePlan.objects.bulk_create(
+                rate_plan_objects,
+                update_conflicts=True,
+                update_fields=["name"],
+                unique_fields=["pms_id", "room_type_id"],
+            )
+            RatePlan.objects.filter(
+                ~Q(pms_id__in=rate_plan_pms_ids) & Q(room_type__hotel=self.hotel)
+            ).delete()
 
     def _get_synced_rate_plans_restrictions(
         self,

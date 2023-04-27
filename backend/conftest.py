@@ -133,13 +133,17 @@ def mocked_channex_validation(mocker):
         ),
     )
     mocker.patch(
-        "backend.utils.channex_client.ChannexClient.get_rate_plans",
+        "backend.utils.channex_client.ChannexClient._get_room_types",
         return_value=mocker.Mock(
             status_code=200,
-            json=mocker.Mock(
-                # Removed unnecessary fields
-                return_value={"data": []}
-            ),
+            json=mocker.Mock(return_value={"data": []}),
+        ),
+    )
+    mocker.patch(
+        "backend.utils.channex_client.ChannexClient._get_rate_plans",
+        return_value=mocker.Mock(
+            status_code=200,
+            json=mocker.Mock(return_value={"data": []}),
         ),
     )
     mocker.patch(

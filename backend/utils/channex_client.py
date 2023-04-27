@@ -13,6 +13,12 @@ CHANNEX_BASE_URL = getattr(
 )
 
 
+class ChannexClientAPIError(Exception):
+    def __init__(self, message, status_code=None):
+        super().__init__(message)
+        self.status_code = status_code
+
+
 class ChannexClient:
     def __init__(self, api_key: str):
         self.api_key = api_key
@@ -106,15 +112,21 @@ class ChannexClient:
     def get_property(self, property_id):
         return self._get(f"properties/{property_id}")
 
-    def get_room_types(self, property_id, options: bool = True):
+    def _get_room_types(self, property_id, options: bool = True):
         if options:
             return self._get(f"room_types/options?filter[property_id]={property_id}")
         return self._get(f"room_types/?filter[property_id]={property_id}")
 
+    def get_room_types(self, property_id, options: bool = True):
+        response = self._get_room_types(property_id, options)
+        if response.status_code != 200:
+            raise ChannexClientAPIError(response.json(), response.status_code)
+        return response.json().get("data")
+
     def get_room_type(self, room_type_id):
         return self._get(f"room_types/{room_type_id}")
 
-    def get_rate_plans(self, property_id, room_type_id=None, options: bool = True):
+    def _get_rate_plans(self, property_id, room_type_id=None, options: bool = True):
         params = {}
         params["filter[property_id]"] = property_id
         if room_type_id:
@@ -123,6 +135,12 @@ class ChannexClient:
         if options:
             return self._get("rate_plans/options", params=params)
         return self._get("rate_plans/", params=params)
+
+    def get_rate_plans(self, property_id, room_type_id=None, options: bool = True):
+        response = self._get_rate_plans(property_id, room_type_id, options)
+        if response.status_code != 200:
+            raise ChannexClientAPIError(response.json(), response.status_code)
+        return response.json().get("data")
 
     def get_rate_plan(self, rate_plan_id):
         return self._get(f"rate_plans/{rate_plan_id}")

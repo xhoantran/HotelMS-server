@@ -114,6 +114,9 @@ class RoomType(models.Model):
     class Meta:
         unique_together = ("hotel", "pms_id")
 
+    def __str__(self) -> str:
+        return self.name
+
 
 class RatePlan(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)

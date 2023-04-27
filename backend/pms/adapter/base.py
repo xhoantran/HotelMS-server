@@ -1,6 +1,7 @@
 import uuid
 
 from django.db.models import Q
+from django.db.models.query import QuerySet
 
 from backend.utils.format import convert_to_id, convert_to_obj
 
@@ -27,7 +28,7 @@ class DefaultPMSAdapter(PMSBaseAdapter):
         room_type: RoomType | uuid.UUID | str = None,
         *args,
         **kwargs,
-    ):
+    ) -> QuerySet[RatePlan]:
         query = Q(room_type__hotel=self.hotel)
         if room_type:
             # Validate room type

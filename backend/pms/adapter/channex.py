@@ -62,6 +62,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         if response.status_code != 200:
             raise Exception(response.json())
         data = response.json().get("data")
+        # TODO: Update currency and time zone
         self.hotel.inventory_days = data["attributes"]["settings"]["state_length"]
         self.hotel.save(update_fields=["inventory_days"])
 
@@ -329,9 +330,8 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         )
         mail_admins(
             "Occupancy Trigger",
-            f"Restriction update to channex: {restriction_update_to_channex}"
-            f"\nRestriction create to db: {restriction_create_to_db}"
-            f"\nPayload: {payload}",
+            f"Hotel: {self.hotel.name}\n"
+            f"Restriction update to channex: {restriction_update_to_channex}",
         )
         if len(restriction_update_to_channex) > 0:
             response = self.client.update_room_type_rate_plan_restrictions(
@@ -356,9 +356,8 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         )
         mail_admins(
             "Time Trigger",
-            f"Restriction update to channex: {restriction_update_to_channex}"
-            f"\nRestriction create to db: {restriction_create_to_db}"
-            f"\nDate: {date}",
+            f"Hotel: {self.hotel.name}\n"
+            f"Restriction update to channex: {restriction_update_to_channex}",
         )
 
         if len(restriction_update_to_channex) > 0:

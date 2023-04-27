@@ -1,4 +1,4 @@
-from typing import Any, List, Tuple
+from typing import Any
 
 from django.contrib import admin
 from django.http.request import HttpRequest
@@ -35,7 +35,7 @@ class OccupancyBasedTriggerRuleAdmin(admin.ModelAdmin):
         "percentage_factor",
     ]
 
-    def get_ordering(self, request: HttpRequest) -> List[str] | Tuple[Any, ...]:
+    def get_ordering(self, request: HttpRequest) -> list[str] | tuple[Any, ...]:
         return ["setting__hotel__name", "min_occupancy"]
 
 
@@ -53,7 +53,7 @@ class TimeBasedTriggerRuleAdmin(admin.ModelAdmin):
         "percentage_factor",
     ]
 
-    def get_ordering(self, request: HttpRequest) -> List[str] | Tuple[Any, ...]:
+    def get_ordering(self, request: HttpRequest) -> list[str] | tuple[Any, ...]:
         return ["setting__hotel__name", "day_ahead", "trigger_time", "min_occupancy"]
 
 

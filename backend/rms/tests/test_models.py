@@ -1,10 +1,10 @@
 import pytest
 
 from ..models import (
+    PeriodicTask,
     RuleNotEnabledError,
     SeasonBasedRule,
     TimeBasedTriggerRule,
-    PeriodicTask,
 )
 
 

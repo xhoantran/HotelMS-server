@@ -1,8 +1,6 @@
 import json
 
-from django.db.models import CharField, F, Value
-from django.db.models.functions import Concat
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django_celery_beat.models import CrontabSchedule, PeriodicTask

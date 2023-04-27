@@ -1,6 +1,5 @@
 from django.contrib import admin
 
-from .adapter import DynamicPricingAdapter
 from .models import (
     DynamicPricingSetting,
     OccupancyBasedTriggerRule,

@@ -313,7 +313,6 @@ class TestChannexPMSAdapter:
 
         # Activate rules
         adapter.load_rms_adapter()
-        adapter.rms_adapter.activate_rules()
 
         mocker.patch(
             "backend.utils.channex_client.ChannexClient.get_room_type_rate_plan_restrictions",

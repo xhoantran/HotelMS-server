@@ -7,6 +7,10 @@ from django_celery_beat.models import PeriodicTask
 from backend.pms.models import Hotel
 
 
+class RuleNotEnabledError(Exception):
+    pass
+
+
 class FactorChoices:
     PERCENTAGE = 0
     INCREMENT = 1
@@ -20,7 +24,7 @@ class DynamicPricingSetting(models.Model):
     )
     is_enabled = models.BooleanField(default=True)
     is_lead_days_based = models.BooleanField(default=False)
-    lead_day_window = models.SmallIntegerField(default=60)
+    lead_day_window = models.PositiveSmallIntegerField(default=60)
     is_weekday_based = models.BooleanField(default=False)
     is_month_based = models.BooleanField(default=False)
     is_season_based = models.BooleanField(default=False)
@@ -31,16 +35,11 @@ class DynamicPricingSetting(models.Model):
 class RuleFactor(models.Model):
     percentage_factor = models.SmallIntegerField(default=0)
     increment_factor = models.IntegerField(default=0)
-    is_active = models.BooleanField(default=False)
 
     class Meta:
         abstract = True
 
     def save(self, *args, **kwargs):
-        # It will be set non active and only DynamicPricingAdapter can set it True
-        # by calling method activate_rules()
-        self.is_active = False
-
         if self.percentage_factor < -100:
             raise ValueError("Percentage factor cannot be less than -100")
 
@@ -55,13 +54,18 @@ class LeadDaysBasedRule(RuleFactor):
         on_delete=models.CASCADE,
         related_name="lead_days_based_rules",
     )
-    lead_days = models.SmallIntegerField()
+    lead_days = models.PositiveSmallIntegerField()
 
     class Meta:
         unique_together = ("setting", "lead_days")
         indexes = [
             models.Index(fields=["setting", "lead_days"]),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.setting.is_lead_days_based:
+            raise RuleNotEnabledError("Lead days based rules are not enabled")
+        super().save(*args, **kwargs)
 
 
 class WeekdayBasedRule(RuleFactor):
@@ -80,7 +84,7 @@ class WeekdayBasedRule(RuleFactor):
         SATURDAY = 6, _("Saturday")
         SUNDAY = 7, _("Sunday")
 
-    weekday = models.SmallIntegerField(choices=WeekdayChoices.choices)
+    weekday = models.PositiveSmallIntegerField(choices=WeekdayChoices.choices)
 
     class Meta:
         unique_together = ("setting", "weekday")
@@ -91,6 +95,8 @@ class WeekdayBasedRule(RuleFactor):
     def save(self, *args, **kwargs):
         if self.weekday not in self.WeekdayChoices.values:
             raise ValueError("Invalid weekday")
+        if not self.setting.is_weekday_based:
+            raise RuleNotEnabledError("Weekday based rules are not enabled")
         super().save(*args, **kwargs)
 
 
@@ -115,7 +121,7 @@ class MonthBasedRule(RuleFactor):
         NOVEMBER = 11, _("November")
         DECEMBER = 12, _("December")
 
-    month = models.SmallIntegerField(choices=MonthChoices.choices)
+    month = models.PositiveSmallIntegerField(choices=MonthChoices.choices)
 
     class Meta:
         unique_together = ("setting", "month")
@@ -126,6 +132,8 @@ class MonthBasedRule(RuleFactor):
     def save(self, *args, **kwargs):
         if self.month not in self.MonthChoices.values:
             raise ValueError("Invalid month")
+        if not self.setting.is_month_based:
+            raise RuleNotEnabledError("Month based rules are not enabled")
         super().save(*args, **kwargs)
 
 
@@ -136,10 +144,10 @@ class SeasonBasedRule(RuleFactor):
         related_name="season_based_rules",
     )
     name = models.CharField(max_length=64)
-    start_month = models.SmallIntegerField()
-    start_day = models.SmallIntegerField()
-    end_month = models.SmallIntegerField()
-    end_day = models.SmallIntegerField()
+    start_month = models.PositiveSmallIntegerField()
+    start_day = models.PositiveSmallIntegerField()
+    end_month = models.PositiveSmallIntegerField()
+    end_day = models.PositiveSmallIntegerField()
 
     class Meta:
         unique_together = ("setting", "name")
@@ -153,6 +161,8 @@ class SeasonBasedRule(RuleFactor):
             datetime.strptime(f"{self.end_month}/{self.end_day}", "%m/%d")
         except ValueError:
             raise ValueError("Invalid start or end date")
+        if not self.setting.is_season_based:
+            raise RuleNotEnabledError("Season based rules are not enabled")
         super().save(*args, **kwargs)
 
 
@@ -162,13 +172,18 @@ class OccupancyBasedTriggerRule(RuleFactor):
         on_delete=models.CASCADE,
         related_name="occupancy_based_trigger_rules",
     )
-    min_occupancy = models.SmallIntegerField()
+    min_occupancy = models.PositiveSmallIntegerField()
 
     class Meta:
         unique_together = ("setting", "min_occupancy")
         indexes = [
             models.Index(fields=["setting", "min_occupancy"]),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.setting.is_occupancy_based:
+            raise RuleNotEnabledError("Occupancy based rules are not enabled")
+        super().save(*args, **kwargs)
 
 
 class TimeBasedTriggerRule(RuleFactor):
@@ -178,8 +193,8 @@ class TimeBasedTriggerRule(RuleFactor):
         related_name="time_based_trigger_rules",
     )
     trigger_time = models.TimeField()
-    min_occupancy = models.SmallIntegerField()
-    max_occupancy = models.SmallIntegerField()
+    min_occupancy = models.PositiveSmallIntegerField()
+    max_occupancy = models.PositiveSmallIntegerField()
 
     class DayAheadChoices(models.IntegerChoices):
         TODAY = 0, _("Today")
@@ -187,7 +202,7 @@ class TimeBasedTriggerRule(RuleFactor):
 
     MAX_DAY_AHEAD = DayAheadChoices.TOMORROW
 
-    day_ahead = models.SmallIntegerField(
+    day_ahead = models.PositiveSmallIntegerField(
         choices=DayAheadChoices.choices,
         default=0,
     )
@@ -195,6 +210,7 @@ class TimeBasedTriggerRule(RuleFactor):
     periodic_task = models.OneToOneField(
         PeriodicTask,
         on_delete=models.SET_NULL,
+        related_name="time_based_trigger_rule",
         null=True,
         blank=True,
     )
@@ -204,9 +220,11 @@ class TimeBasedTriggerRule(RuleFactor):
             raise ValueError("Min occupancy cannot be greater than max occupancy")
         if self.day_ahead not in self.DayAheadChoices.values:
             raise ValueError("Invalid day ahead")
+        if not self.setting.is_time_based:
+            raise RuleNotEnabledError("Time based rules are not enabled")
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
         if self.periodic_task:
             self.periodic_task.delete()
-        super().delete(*args, **kwargs)
+        return super().delete(*args, **kwargs)

@@ -4,6 +4,7 @@ from datetime import date as date_class
 from django.contrib.sites.models import Site
 from django.core.mail import mail_admins
 from django.db.models import Prefetch
+from django.db.models.query import QuerySet
 from django.urls import reverse
 from django.utils import timezone
 
@@ -124,17 +125,18 @@ class ChannexPMSAdapter(PMSBaseAdapter):
 
     def _get_synced_rate_plans_restrictions(
         self,
-        room_type_uuid: str | uuid.UUID | list[str] | list[uuid.UUID],
-        room_type_pms_id: str | uuid.UUID,
+        room_type_uuid: str | uuid.UUID | QuerySet,
+        room_type_pms_id: str | uuid.UUID | None,
         start_date: str,
         end_date: str,
     ):
         """
-        Get synced rate plans and restrictions
+        Get synced rate plans and restrictions. We use this for both occupancy trigger
+        and time trigger.
 
         Args:
-            room_type_uuid (str): Room type id
-            room_type_pms_id (str): Room type pms id
+            room_type_uuid (str | uuid.UUID | QuerySet): Room type uuid
+            room_type_pms_id (str | uuid.UUID | None): Room type pms id
             start_date (str): Start date
             end_date (str): End date
 
@@ -142,6 +144,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             rate_plan_id_map (dict): Rate plan id map
             saved_restrictions (dict): Saved restrictions
         """
+        print(room_type_uuid, room_type_pms_id, start_date, end_date)
         if isinstance(room_type_uuid, (str, uuid.UUID)) and isinstance(
             room_type_pms_id, (str, uuid.UUID)
         ):
@@ -159,7 +162,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                     to_attr="filtered_restrictions",
                 )
             )
-        elif isinstance(room_type_uuid, list):
+        elif isinstance(room_type_uuid, QuerySet):
             synced_rate_plans = RatePlan.objects.filter(
                 room_type__uuid__in=room_type_uuid,
                 room_type__hotel=self.hotel,
@@ -323,6 +326,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             RatePlanRestrictions.objects.bulk_create(restriction_create_to_db)
 
     def handle_time_based_trigger(self, date: date_class):
+        # List is important
         room_type_uuid = RoomType.objects.filter(hotel=self.hotel).values_list(
             "uuid", flat=True
         )
@@ -331,6 +335,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             restriction_create_to_db,
         ) = self._get_restrictions_to_update(
             room_type_uuid=room_type_uuid,
+            room_type_pms_id=None,
             sorted_date_range=[date.strftime("%Y-%m-%d")],
         )
         mail_admins(

@@ -59,20 +59,23 @@ class ChannexAvailabilityCallbackAPIView(generics.GenericAPIView):
     permission_classes = [HasHotelAPIKey]
 
     def post(self, request, *args, **kwargs):
-        key = request.META["HTTP_AUTHORIZATION"].split()[1]
-        try:
-            hotel = HotelAPIKey.objects.get_from_key(key=key).hotel
-            adapter = ChannexPMSAdapter(hotel)
-            room_type_uuid = request.GET.get("room_type_uuid")
+        if request.data.get("event") != "ari":
+            return response.Response(status=400, data={"error": "Invalid event"})
 
-            if request.data.get("event") != "ari":
-                return response.Response(status=400, data={"error": "Invalid event"})
+        try:
+            key = request.META["HTTP_AUTHORIZATION"].split()[1]
+            hotel = HotelAPIKey.objects.get_from_key(key=key).hotel
+            if str(hotel.pms_id) != request.data.get("property_id"):
+                return response.Response(
+                    status=401, data={"error": "Invalid property_id"}
+                )
 
             # If user_id is present, it means that the request is triggered
             # by a manual action in the Channex dashboard.
             if not request.data.get("user_id", True):
-                adapter.handle_booked_ari_trigger(
-                    room_type_uuid, request.data.get("payload")
+                ChannexPMSAdapter(hotel).handle_booked_ari_trigger(
+                    room_type_uuid=request.GET.get("room_type_uuid"),
+                    payload=request.data.get("payload"),
                 )
             return response.Response(status=200)
 

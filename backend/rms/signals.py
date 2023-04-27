@@ -94,7 +94,7 @@ def post_save_time_based_trigger_rule(
         )
         instance.periodic_task = PeriodicTask.objects.create(
             name=f"TimeBasedTriggerRule {instance.id} {instance.trigger_time}",
-            task="rms.tasks.handle_time_based_trigger_rule",
+            task="backend.rms.tasks.handle_time_based_trigger_rule",
             start_time=timezone.now(),
             crontab=crontab,
             kwargs=json.dumps(
@@ -120,5 +120,8 @@ def post_save_time_based_trigger_rule(
             "hotel_id": instance.setting.hotel.id,
             "day_ahead": instance.day_ahead,
         }
+    )
+    instance.periodic_task.name = (
+        f"TimeBasedTriggerRule {instance.id} {instance.trigger_time}"
     )
     instance.periodic_task.save()

@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from backend.rms.adapter import DynamicPricingAdapter
 from backend.utils.channex_client import ChannexClient
+from backend.utils.currency import get_currency_min_frac_size, is_valid_currency
 
 from ..models import RatePlan, RatePlanRestrictions, RoomType
 from .base import PMSBaseAdapter
@@ -49,6 +50,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         self.hotel.city = data["attributes"]["city"]
         self.hotel.country = data["attributes"]["country"]
         self.hotel.currency = data["attributes"]["currency"]
+        is_valid_currency(self.hotel.currency)  # Check if currency is valid
         self.hotel.timezone = data["attributes"]["timezone"]
         self.hotel.inventory_days = data["attributes"]["settings"]["state_length"]
         self.hotel.save(
@@ -266,6 +268,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         restriction_update_to_channex = []
         restriction_create_to_db = []
         current_datetime = timezone.now()
+        currency_min_frac_size = get_currency_min_frac_size(self.hotel.currency)
         # Loop through each synced rate plan
         for rate_plan_pms_id, rate_plan_id in rate_plan_id_map.items():
             # Loop through each date
@@ -278,11 +281,14 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                 else:
                     original_rate = int(channex_data[rate_plan_pms_id][date]["rate"])
 
-                new_rate = self.rms_adapter.calculate_rate(
-                    rate=int(original_rate),
-                    date=timezone.datetime.strptime(date, "%Y-%m-%d").date(),
-                    current_datetime=current_datetime,
-                    occupancy=channex_data[rate_plan_pms_id][date]["booked"],
+                new_rate = (
+                    self.rms_adapter.calculate_rate(
+                        rate=int(original_rate),
+                        date=timezone.datetime.strptime(date, "%Y-%m-%d").date(),
+                        current_datetime=current_datetime,
+                        occupancy=channex_data[rate_plan_pms_id][date]["booked"],
+                    )
+                    * currency_min_frac_size
                 )
 
                 # If new rate is different from original rate, update it

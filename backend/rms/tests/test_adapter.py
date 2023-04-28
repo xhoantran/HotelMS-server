@@ -24,7 +24,7 @@ def test_dynamic_pricing_adapter_cache(
     db_occupancy_based_trigger_rules = adapter.occupancy_based_trigger_rules
     db_lead_days_based_rules = adapter.lead_days_based_rules
     db_time_based_trigger_rules = adapter.time_based_trigger_rules
-    with django_assert_num_queries(2):
+    with django_assert_num_queries(1):
         adapter = DynamicPricingAdapter(hotel=hotel_id)
         assert adapter.weekday_based_rules == db_weekday_based_rules
         assert adapter.month_based_rules == db_month_based_rules

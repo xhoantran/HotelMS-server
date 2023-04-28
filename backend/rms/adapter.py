@@ -196,7 +196,7 @@ class DynamicPricingAdapter:
             self.load_from_db()
             self.save_to_cache()
         else:
-            self.timezone = self.setting.hotel.timezone
+            self.timezone = ret["timezone"]
             self.is_enabled = ret["is_enabled"]
             # Lead days based rules
             self.is_lead_days_based = ret["is_lead_days_based"]

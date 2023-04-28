@@ -27,7 +27,7 @@ def sync_with_channex(modeladmin, request, queryset: QuerySet[Hotel]):
 @admin.register(Hotel)
 class HotelAdmin(admin.ModelAdmin):
     list_display = ("name", "pms", "pms_id")
-    readonly_fields = ("timezone",)
+    readonly_fields = ("timezone", "currency", "uuid")
 
     actions = [sync_with_channex]
 

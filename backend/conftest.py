@@ -122,6 +122,7 @@ def mocked_channex_validation(mocker):
                             "address": "Address",
                             "city": "City",
                             "country": "VN",
+                            # We use VND because of its fractional unit is 1
                             "currency": "VND",
                             "timezone": "Asia/Ho_Chi_Minh",
                             "settings": {"state_length": 200},

@@ -1,5 +1,5 @@
 """
-ASGI config for HotelPMS project.
+ASGI config for HotelMS project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 

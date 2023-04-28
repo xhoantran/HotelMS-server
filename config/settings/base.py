@@ -312,7 +312,7 @@ ACCOUNT_AUTHENTICATION_METHOD = "username_email"
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
 ACCOUNT_EMAIL_REQUIRED = True
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_EMAIL_VERIFICATION = "optional"
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
 ACCOUNT_ADAPTER = "backend.users.adapters.AccountAdapter"
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
@@ -330,14 +330,12 @@ REST_FRAMEWORK = {
     "NON_FIELD_ERRORS_KEY": "detail",
 }
 
-# django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
-CORS_ALLOW_ALL_ORIGINS = True
 
 # By Default swagger ui is available only to admin user(s). You can change permission classes to change that
 # See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings
 SPECTACULAR_SETTINGS = {
-    "TITLE": "HotelPMS API",
-    "DESCRIPTION": "Documentation of API endpoints of HotelPMS",
+    "TITLE": "HotelMS API",
+    "DESCRIPTION": "Documentation of API endpoints of HotelMS",
     "VERSION": "1.0.0",
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
 }
@@ -347,4 +345,11 @@ SPECTACULAR_SETTINGS = {
 REST_AUTH = {
     "USE_JWT": True,
     "JWT_AUTH_HTTPONLY": False,
+    "USER_DETAILS_SERIALIZER": "backend.users.serializers.UserDetailSerializer",
 }
+
+# Frontend
+FRONTEND_BASE_URL = env("DJANGO_FRONTEND_BASE_URL", default="http://127.0.0.1:5173")
+
+# django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
+CORS_ALLOWED_ORIGINS = [FRONTEND_BASE_URL]

@@ -195,7 +195,8 @@ class TimeBasedTriggerRule(RuleFactor):
         on_delete=models.CASCADE,
         related_name="time_based_trigger_rules",
     )
-    trigger_time = models.TimeField()
+    hour = models.PositiveSmallIntegerField()
+    minute = models.PositiveSmallIntegerField()
     min_occupancy = models.PositiveSmallIntegerField()
     max_occupancy = models.PositiveSmallIntegerField()
 
@@ -219,6 +220,10 @@ class TimeBasedTriggerRule(RuleFactor):
     )
 
     def save(self, *args, **kwargs):
+        if self.hour > 23:
+            raise ValueError("Invalid hour")
+        if self.minute > 59:
+            raise ValueError("Invalid minute")
         if self.min_occupancy > self.max_occupancy:
             raise ValueError("Min occupancy cannot be greater than max occupancy")
         if self.day_ahead not in self.DayAheadChoices.values:

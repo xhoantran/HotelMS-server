@@ -173,7 +173,22 @@ def test_time_based_rule_save(
     with pytest.raises(ValueError):
         time_based_rule_factory(
             setting=setting,
-            trigger_time="16:00:00",
+            hour=24,
+            minute=0,
+            increment_factor=200000,
+        )
+    with pytest.raises(ValueError):
+        time_based_rule_factory(
+            setting=setting,
+            hour=4,
+            minute=60,
+            increment_factor=200000,
+        )
+    with pytest.raises(ValueError):
+        time_based_rule_factory(
+            setting=setting,
+            hour=23,
+            minute=59,
             increment_factor=200000,
             min_occupancy=1,
             max_occupancy=0,
@@ -181,7 +196,8 @@ def test_time_based_rule_save(
     with pytest.raises(ValueError):
         time_based_rule_factory(
             setting=setting,
-            trigger_time="16:00:00",
+            hour=23,
+            minute=59,
             increment_factor=200000,
             min_occupancy=0,
             max_occupancy=1,
@@ -190,7 +206,8 @@ def test_time_based_rule_save(
 
     rule = time_based_rule_factory(
         setting=setting,
-        trigger_time="16:00:00",
+        hour=23,
+        minute=59,
         increment_factor=200000,
     )
     assert TimeBasedTriggerRule.objects.count() == 1

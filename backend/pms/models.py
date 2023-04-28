@@ -164,6 +164,7 @@ class Room(models.Model):
     )
 
 
+# Deprecated
 class Booking(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     user = models.ForeignKey(

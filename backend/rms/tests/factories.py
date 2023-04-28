@@ -94,7 +94,8 @@ class OccupancyBasedTriggerRuleFactory(RuleFactoryFactory):
 
 class TimeBasedTriggerRuleFactory(RuleFactoryFactory):
     setting = SubFactory(DynamicPricingSettingFactory)
-    trigger_time = Faker("time", pattern="%H:%M:%S")
+    hour = Faker("pyint", min_value=0, max_value=23)
+    minute = Faker("pyint", min_value=0, max_value=59)
     min_occupancy = Faker("pyint", min_value=1, max_value=10)
     max_occupancy = LazyAttribute(lambda o: o.min_occupancy + o.occupancy_gap)
     day_ahead = Faker(

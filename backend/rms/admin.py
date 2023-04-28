@@ -15,11 +15,9 @@ def hotel_name(obj):
     return obj.hotel
 
 
+@admin.register(DynamicPricingSetting)
 class DynamicPricingSettingAdmin(admin.ModelAdmin):
     list_display = [hotel_name, "is_enabled"]
-
-
-admin.site.register(DynamicPricingSetting, DynamicPricingSettingAdmin)
 
 
 @admin.display(description="Hotel")
@@ -27,6 +25,7 @@ def rule_hotel_name(obj):
     return obj.setting.hotel
 
 
+@admin.register(OccupancyBasedTriggerRule)
 class OccupancyBasedTriggerRuleAdmin(admin.ModelAdmin):
     list_display = [
         rule_hotel_name,
@@ -39,14 +38,17 @@ class OccupancyBasedTriggerRuleAdmin(admin.ModelAdmin):
         return ["setting__hotel__name", "min_occupancy"]
 
 
-admin.site.register(OccupancyBasedTriggerRule, OccupancyBasedTriggerRuleAdmin)
+@admin.display(description="Trigger Time")
+def trigger_time(obj):
+    return f"{obj.hour}:{obj.minute}"
 
 
+@admin.register(TimeBasedTriggerRule)
 class TimeBasedTriggerRuleAdmin(admin.ModelAdmin):
     list_display = [
         rule_hotel_name,
         "day_ahead",
-        "trigger_time",
+        trigger_time,
         "min_occupancy",
         "max_occupancy",
         "increment_factor",
@@ -54,7 +56,4 @@ class TimeBasedTriggerRuleAdmin(admin.ModelAdmin):
     ]
 
     def get_ordering(self, request: HttpRequest) -> list[str] | tuple[Any, ...]:
-        return ["setting__hotel__name", "day_ahead", "trigger_time", "min_occupancy"]
-
-
-admin.site.register(TimeBasedTriggerRule, TimeBasedTriggerRuleAdmin)
+        return ["setting__hotel__name", "day_ahead", "hour", "minute", "min_occupancy"]

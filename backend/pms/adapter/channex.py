@@ -216,8 +216,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             last_inventory_days (int): Last inventory days
         """
         return (
-            timezone.localtime()
-            + timezone.timedelta(days=self.hotel.inventory_days - 1)
+            timezone.now() + timezone.timedelta(days=self.hotel.inventory_days - 1)
         ).strftime("%Y-%m-%d")
 
     @staticmethod
@@ -266,7 +265,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
 
         restriction_update_to_channex = []
         restriction_create_to_db = []
-        current_datetime = timezone.localtime()
+        current_datetime = timezone.now()
         # Loop through each synced rate plan
         for rate_plan_pms_id, rate_plan_id in rate_plan_id_map.items():
             # Loop through each date

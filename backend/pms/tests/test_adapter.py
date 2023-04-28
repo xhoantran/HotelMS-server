@@ -82,8 +82,8 @@ class TestRoomTypeAdapter:
         booking_factory(room=rooms[0])
         room_type_adapter = RoomTypeAdapter(room_type)
         available_room = room_type_adapter.get_available_room(
-            start_date=timezone.localtime(),
-            end_date=timezone.localtime() + timezone.timedelta(days=20),
+            start_date=timezone.now(),
+            end_date=timezone.now() + timezone.timedelta(days=20),
         )
         assert available_room == rooms[1]
 
@@ -461,7 +461,7 @@ class TestChannexPMSAdapter:
                 [
                     RatePlanRestrictions(
                         rate_plan=rate_plan,
-                        date=timezone.localtime().date(),
+                        date=timezone.now().date(),
                         rate=100000,
                     )
                 ],
@@ -486,7 +486,7 @@ class TestChannexPMSAdapter:
         hotel.inventory_days = 500
         hotel.save()
         mocker.patch(
-            "django.utils.timezone.localtime",
+            "django.utils.timezone.now",
             return_value=timezone.datetime(
                 2023,
                 4,
@@ -529,7 +529,7 @@ class TestChannexPMSAdapter:
             "backend.pms.adapter.channex.ChannexPMSAdapter._get_restrictions_to_update",
             return_value=([], []),
         )
-        adapter.handle_time_based_trigger(date=timezone.localtime().date())
+        adapter.handle_time_based_trigger(date=timezone.now().date())
         mocker_get_restrictions = mocker.patch(
             "backend.pms.adapter.channex.ChannexPMSAdapter._get_restrictions_to_update",
             return_value=(
@@ -537,7 +537,7 @@ class TestChannexPMSAdapter:
                 [
                     RatePlanRestrictions(
                         rate_plan=rate_plan,
-                        date=timezone.localtime().date(),
+                        date=timezone.now().date(),
                         rate=100000,
                     )
                 ],
@@ -547,11 +547,11 @@ class TestChannexPMSAdapter:
             "backend.utils.channex_client.ChannexClient.update_room_type_rate_plan_restrictions",
             return_value=mocker.Mock(status_code=200),
         )
-        adapter.handle_time_based_trigger(date=timezone.localtime().date())
+        adapter.handle_time_based_trigger(date=timezone.now().date())
         mocker_get_restrictions.assert_called_once()
         mocker_update_room.assert_called_once()
         assert RatePlanRestrictions.objects.filter(
             rate_plan=rate_plan,
-            date=timezone.localtime().date(),
+            date=timezone.now().date(),
             rate=100000,
         ).exists()

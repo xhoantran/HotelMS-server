@@ -11,7 +11,7 @@ class TestHotelModel:
     def test_default_setting(self, hotel_factory):
         hotel = hotel_factory(name="Hotel")
         assert str(hotel) == "Hotel"
-        assert hotel.pms == Hotel.PMSChoices.__empty__
+        assert hotel.pms == ""
         assert isinstance(hotel.adapter, DefaultPMSAdapter)
 
     def test_validation(self, mocker, hotel_factory):

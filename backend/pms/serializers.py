@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from timezone_field.rest_framework import TimeZoneSerializerField
 
 from .models import Hotel, HotelEmployee, RatePlan, RatePlanRestrictions, Room, RoomType
 
@@ -7,6 +8,8 @@ User = get_user_model()
 
 
 class HotelSerializer(serializers.ModelSerializer):
+    timezone = TimeZoneSerializerField(use_pytz=False)
+
     class Meta:
         model = Hotel
         exclude = ("id",)

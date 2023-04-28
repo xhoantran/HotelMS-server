@@ -16,7 +16,10 @@ for model in apps.get_models():
 def sync_with_channex(modeladmin, request, queryset: QuerySet[Hotel]):
     for hotel in queryset:
         if hotel.pms == Hotel.PMSChoices.CHANNEX:
-            HotelAPIKey.objects.get(hotel=hotel).delete()
+            try:
+                HotelAPIKey.objects.get(hotel=hotel).delete()
+            except HotelAPIKey.DoesNotExist:
+                pass
             _, api_key = HotelAPIKey.objects.create_key(hotel=hotel, name="API Key")
             hotel.adapter.sync_up(api_key=api_key)
 
@@ -24,11 +27,14 @@ def sync_with_channex(modeladmin, request, queryset: QuerySet[Hotel]):
 @admin.register(Hotel)
 class HotelAdmin(admin.ModelAdmin):
     list_display = ("name", "pms", "pms_id")
+    readonly_fields = ("timezone",)
+
     actions = [sync_with_channex]
 
 
 @admin.register(RoomType)
 class RoomTypeAdmin(admin.ModelAdmin):
+    readonly_fields = ("uuid",)
     list_display = ("name", "hotel", "pms_id")
 
     def get_ordering(self, request: HttpRequest) -> list[str] | tuple[Any, ...]:
@@ -42,6 +48,7 @@ def rate_plan_hotel_name(obj):
 
 @admin.register(RatePlan)
 class RatePlanAdmin(admin.ModelAdmin):
+    readonly_fields = ("uuid",)
     list_display = (rate_plan_hotel_name, "room_type", "name", "pms_id")
 
     def get_ordering(self, request: HttpRequest) -> list[str] | tuple[Any, ...]:

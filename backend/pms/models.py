@@ -3,6 +3,7 @@ import uuid
 from django.contrib.auth import get_user_model
 from django.db import models
 from rest_framework_api_key.models import AbstractAPIKey
+from timezone_field import TimeZoneField
 
 User = get_user_model()
 
@@ -12,6 +13,13 @@ class Hotel(models.Model):
     name = models.CharField(max_length=255)
     inventory_days = models.SmallIntegerField(default=100)
 
+    address = models.CharField(max_length=255, null=True, blank=True)
+    city = models.CharField(max_length=128, null=True, blank=True)
+    country = models.CharField(max_length=2, null=True, blank=True)
+    currency = models.CharField(max_length=3, null=True, blank=True)
+    # TODO: Add logic to derive this from the city and country
+    timezone = TimeZoneField(use_pytz=False, default="UTC")
+
     class PMSChoices(models.TextChoices):
         CHANNEX = "CHANNEX", "Channex"
         __empty__ = "default"
@@ -19,7 +27,7 @@ class Hotel(models.Model):
     pms = models.CharField(
         max_length=16,
         choices=PMSChoices.choices,
-        default=PMSChoices.__empty__,
+        blank=True,
     )
     pms_id = models.UUIDField(null=True, blank=True)
     # TODO: This should be encrypted in production
@@ -34,7 +42,7 @@ class Hotel(models.Model):
             from .adapter import ChannexPMSAdapter
 
             return ChannexPMSAdapter(self)
-        elif self.pms == self.PMSChoices.__empty__:
+        elif not self.pms:
             from .adapter import DefaultPMSAdapter
 
             return DefaultPMSAdapter(self)
@@ -42,15 +50,14 @@ class Hotel(models.Model):
             raise ValueError("Invalid PMS")
 
     def validate_pms(self):
-        if self.pms != self.PMSChoices.__empty__:
-            if not self.pms_id or not self.pms_api_key:
-                raise ValueError(
-                    "External ID and API Key are required for external PMS"
-                )
-            if not self.adapter.validate_api_key(self.pms_api_key):
-                raise ValueError("Invalid API Key")
-            if not self.adapter.validate_pms_id(self.pms_api_key, self.pms_id):
-                raise ValueError("Invalid external ID")
+        if not self.pms:
+            return
+        if not self.pms_id or not self.pms_api_key:
+            raise ValueError("External ID and API Key are required for external PMS")
+        if not self.adapter.validate_api_key(self.pms_api_key):
+            raise ValueError("Invalid API Key")
+        if not self.adapter.validate_pms_id(self.pms_api_key, self.pms_id):
+            raise ValueError("Invalid external ID")
 
     def save(self, *args, **kwargs):
         if self.inventory_days < 100 or self.inventory_days > 700:

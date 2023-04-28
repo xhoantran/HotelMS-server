@@ -39,32 +39,28 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         response = client.get_property(pms_id)
         return response.status_code == 200
 
-    def _set_up_room_type_webhook(
-        self,
-        room_type_uuid: str,
-        room_type_pms_id: str,
-        api_key: str,
-        callback_url: str,
-    ):
-        response = self.client.create_webhook(
-            property_id=str(self.hotel.pms_id),
-            callback_url=callback_url,
-            event_mask=f"ari:booked:{room_type_pms_id}:*",
-            request_params={"room_type_uuid": room_type_uuid},
-            headers={"Authorization": f"Api-Key {api_key}"},
-        )
-        if response.status_code != 201 and response.status_code != 422:
-            raise Exception(response.json())
-
     def sync_up(self, api_key: str):
         # Get properties
         response = self.client.get_property(self.hotel.pms_id)
         if response.status_code != 200:
             raise Exception(response.json())
         data = response.json().get("data")
-        # TODO: Update currency and time zone
+        self.hotel.address = data["attributes"]["address"]
+        self.hotel.city = data["attributes"]["city"]
+        self.hotel.country = data["attributes"]["country"]
+        self.hotel.currency = data["attributes"]["currency"]
+        self.hotel.timezone = data["attributes"]["timezone"]
         self.hotel.inventory_days = data["attributes"]["settings"]["state_length"]
-        self.hotel.save(update_fields=["inventory_days"])
+        self.hotel.save(
+            update_fields=[
+                "inventory_days",
+                "address",
+                "city",
+                "country",
+                "currency",
+                "timezone",
+            ]
+        )
 
         # Get room types and rate plans
         data = self.client.get_room_types(property_id=self.hotel.pms_id)
@@ -106,11 +102,12 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                 room_type_id_map[str(room_type.pms_id)] = room_type.id
 
                 # Set up room type webhook
-                self._set_up_room_type_webhook(
-                    room_type_uuid=str(room_type.uuid),
-                    room_type_pms_id=str(room_type.pms_id),
-                    api_key=api_key,
+                self.client.update_or_create_webhook(
+                    property_id=str(self.hotel.pms_id),
                     callback_url=f"https://{current_site.domain}{reverse('pms:channex-availability-callback')}",
+                    event_mask=f"ari:booked:{str(room_type.pms_id)}:*",
+                    request_params={"room_type_uuid": str(room_type.uuid)},
+                    headers={"Authorization": f"Api-Key {api_key}"},
                 )
 
             # Get rate plans

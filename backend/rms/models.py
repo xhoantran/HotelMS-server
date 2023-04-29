@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from django.db import models
@@ -17,6 +18,7 @@ class FactorChoices:
 
 
 class DynamicPricingSetting(models.Model):
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     hotel = models.OneToOneField(
         Hotel,
         on_delete=models.CASCADE,
@@ -36,6 +38,7 @@ class DynamicPricingSetting(models.Model):
 
 
 class RuleFactor(models.Model):
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     percentage_factor = models.SmallIntegerField(default=0)
     increment_factor = models.IntegerField(default=0)
 

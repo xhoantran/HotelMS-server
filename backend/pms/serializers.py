@@ -1,3 +1,5 @@
+from typing import Any
+
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from timezone_field.rest_framework import TimeZoneSerializerField
@@ -8,11 +10,18 @@ User = get_user_model()
 
 
 class HotelSerializer(serializers.ModelSerializer):
-    timezone = TimeZoneSerializerField(use_pytz=False)
+    timezone = TimeZoneSerializerField(use_pytz=False, read_only=True)
 
     class Meta:
         model = Hotel
         exclude = ("id",)
+
+    def update(self, instance: Hotel, validated_data: Any) -> Any:
+        if instance.pms == Hotel.PMSChoices.CHANNEX:
+            raise serializers.ValidationError(
+                "You can't update a hotel with Channex as PMS"
+            )
+        return super().update(instance, validated_data)
 
 
 class HotelEmployeeSerializer(serializers.ModelSerializer):

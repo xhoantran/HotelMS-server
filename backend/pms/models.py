@@ -20,6 +20,9 @@ class Hotel(models.Model):
     # TODO: Add logic to derive this from the city and country
     timezone = TimeZoneField(use_pytz=False, default="UTC")
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     class PMSChoices(models.TextChoices):
         CHANNEX = "CHANNEX", "Channex"
         __empty__ = "default"
@@ -34,7 +37,13 @@ class Hotel(models.Model):
     pms_api_key = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
-        unique_together = ("pms", "pms_id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["pms", "pms_id"],
+                name="unique_pms_id_per_pms",
+                violation_error_message="Property with this external ID already exists",
+            )
+        ]
 
     @property
     def adapter(self):
@@ -118,6 +127,9 @@ class RoomType(models.Model):
     )
     pms_id = models.UUIDField(null=True, blank=True)
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     class Meta:
         unique_together = ("hotel", "pms_id")
 
@@ -135,6 +147,9 @@ class RatePlan(models.Model):
     )
     pms_id = models.UUIDField(null=True, blank=True)
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     class Meta:
         unique_together = ("room_type", "pms_id")
 
@@ -148,6 +163,7 @@ class RatePlanRestrictions(models.Model):
     )
     date = models.DateField()
     rate = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

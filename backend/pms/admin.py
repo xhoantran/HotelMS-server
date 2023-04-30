@@ -1,15 +1,10 @@
 from typing import Any
 
-from django.apps import apps
 from django.contrib import admin
 from django.db.models.query import QuerySet
 from django.http.request import HttpRequest
 
 from .models import Hotel, HotelAPIKey, RatePlan, RoomType
-
-for model in apps.get_models():
-    if model.__name__ and admin.site.is_registered(model):
-        admin.site.unregister(model)
 
 
 @admin.action(description="Sync with Channex")

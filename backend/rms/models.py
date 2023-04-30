@@ -33,6 +33,9 @@ class DynamicPricingSetting(models.Model):
     is_occupancy_based = models.BooleanField(default=False)
     is_time_based = models.BooleanField(default=False)
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     def __str__(self) -> str:
         return f"{self.hotel.name} - DPS"
 
@@ -41,6 +44,8 @@ class RuleFactor(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     percentage_factor = models.SmallIntegerField(default=0)
     increment_factor = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         abstract = True

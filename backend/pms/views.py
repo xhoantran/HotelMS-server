@@ -1,6 +1,12 @@
+from typing import Any
+
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 from rest_framework import generics, response, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import APIException
+from rest_framework.request import Request
+from rest_framework.response import Response
 
 from backend.users.permissions import IsAdmin, IsEmployee, IsManager
 
@@ -21,6 +27,12 @@ class HotelModelViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdmin]
     queryset = Hotel.objects.all()
     serializer_class = HotelSerializer
+
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        try:
+            return super().create(request, *args, **kwargs)
+        except IntegrityError:
+            raise APIException(detail="Property with this external ID already exists")
 
 
 class HotelEmployeeModelViewSet(viewsets.ModelViewSet):

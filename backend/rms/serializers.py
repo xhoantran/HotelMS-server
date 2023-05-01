@@ -11,43 +11,64 @@ from .models import (
 )
 
 
+class DynamicPricingSettingReadOnlySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DynamicPricingSetting
+        fields = ("uuid", "is_enabled", "created_at", "updated_at")
+
+
+class RuleFactorSerializer(serializers.ModelSerializer):
+    setting = serializers.SlugRelatedField(
+        slug_field="uuid",
+        queryset=DynamicPricingSetting.objects.all(),
+    )
+
+    class Meta:
+        exclude = ("id",)
+        extra_kwargs = {
+            "increment_factor": {"required": True},
+            "percentage_factor": {"required": True},
+        }
+
+
+class LeadDaysBasedRuleSerializer(RuleFactorSerializer):
+    class Meta(RuleFactorSerializer.Meta):
+        model = LeadDaysBasedRule
+
+
+class WeekdayBasedRuleSerializer(RuleFactorSerializer):
+    class Meta(RuleFactorSerializer.Meta):
+        model = WeekdayBasedRule
+
+
+class MonthBasedRuleSerializer(RuleFactorSerializer):
+    class Meta(RuleFactorSerializer.Meta):
+        model = MonthBasedRule
+
+
+class SeasonBasedRuleSerializer(RuleFactorSerializer):
+    class Meta(RuleFactorSerializer.Meta):
+        model = SeasonBasedRule
+
+
+class OccupancyBasedTriggerRuleSerializer(RuleFactorSerializer):
+    class Meta(RuleFactorSerializer.Meta):
+        model = OccupancyBasedTriggerRule
+
+
+class TimeBasedTriggerRuleSerializer(RuleFactorSerializer):
+    class Meta(RuleFactorSerializer.Meta):
+        model = TimeBasedTriggerRule
+
+
 class DynamicPricingSettingSerializer(serializers.ModelSerializer):
+    occupancy_based_trigger_rules = OccupancyBasedTriggerRuleSerializer(
+        required=False, read_only=True, many=True
+    )
+    time_based_trigger_rules = TimeBasedTriggerRuleSerializer(
+        required=False, read_only=True, many=True
+    )
+
     class Meta:
         model = DynamicPricingSetting
         exclude = ("id", "hotel")
-
-
-class LeadDaysBasedRuleSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LeadDaysBasedRule
-        exclude = ("id",)
-
-
-class WeekdayBasedRuleSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = WeekdayBasedRule
-        exclude = ("id",)
-
-
-class MonthBasedRuleSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MonthBasedRule
-        exclude = ("id",)
-
-
-class SeasonBasedRuleSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SeasonBasedRule
-        exclude = ("id",)
-
-
-class OccupancyBasedTriggerRuleSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OccupancyBasedTriggerRule
-        exclude = ("id",)
-
-
-class TimeBasedTriggerRuleSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TimeBasedTriggerRule
-        exclude = ("id",)

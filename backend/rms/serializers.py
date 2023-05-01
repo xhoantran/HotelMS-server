@@ -1,10 +1,10 @@
 from rest_framework import serializers
 
 from .models import (
-    AvailabilityBasedTriggerRule,
     DynamicPricingSetting,
     LeadDaysBasedRule,
     MonthBasedRule,
+    OccupancyBasedTriggerRule,
     SeasonBasedRule,
     TimeBasedTriggerRule,
     WeekdayBasedRule,
@@ -14,40 +14,40 @@ from .models import (
 class DynamicPricingSettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = DynamicPricingSetting
-        fields = "__all__"
+        exclude = ("id", "hotel")
 
 
 class LeadDaysBasedRuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = LeadDaysBasedRule
-        fields = "__all__"
+        exclude = ("id",)
 
 
 class WeekdayBasedRuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = WeekdayBasedRule
-        fields = "__all__"
+        exclude = ("id",)
 
 
 class MonthBasedRuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = MonthBasedRule
-        fields = "__all__"
+        exclude = ("id",)
 
 
 class SeasonBasedRuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = SeasonBasedRule
-        fields = "__all__"
+        exclude = ("id",)
 
 
-class AvailabilityBasedTriggerRuleSerializer(serializers.ModelSerializer):
+class OccupancyBasedTriggerRuleSerializer(serializers.ModelSerializer):
     class Meta:
-        model = AvailabilityBasedTriggerRule
-        fields = "__all__"
+        model = OccupancyBasedTriggerRule
+        exclude = ("id",)
 
 
 class TimeBasedTriggerRuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = TimeBasedTriggerRule
-        fields = "__all__"
+        exclude = ("id",)

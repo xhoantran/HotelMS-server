@@ -46,6 +46,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         if response.status_code != 200:
             raise Exception(response.json())
         data = response.json().get("data")
+        self.hotel.name = data["attributes"]["title"]
         self.hotel.address = data["attributes"]["address"]
         self.hotel.city = data["attributes"]["city"]
         self.hotel.country = data["attributes"]["country"]
@@ -53,16 +54,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         is_valid_currency(self.hotel.currency)  # Check if currency is valid
         self.hotel.timezone = data["attributes"]["timezone"]
         self.hotel.inventory_days = data["attributes"]["settings"]["state_length"]
-        self.hotel.save(
-            update_fields=[
-                "inventory_days",
-                "address",
-                "city",
-                "country",
-                "currency",
-                "timezone",
-            ]
-        )
+        self.hotel.save()
 
         # Get room types and rate plans
         data = self.client.get_room_types(property_id=self.hotel.pms_id)

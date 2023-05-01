@@ -4,6 +4,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from timezone_field.rest_framework import TimeZoneSerializerField
 
+from backend.rms.serializers import DynamicPricingSettingSerializer
+
 from .models import Hotel, HotelEmployee, RatePlan, RatePlanRestrictions, Room, RoomType
 
 User = get_user_model()
@@ -11,6 +13,9 @@ User = get_user_model()
 
 class HotelSerializer(serializers.ModelSerializer):
     timezone = TimeZoneSerializerField(use_pytz=False, read_only=True)
+    dynamic_pricing_setting = DynamicPricingSettingSerializer(
+        read_only=True, required=False
+    )
 
     class Meta:
         model = Hotel

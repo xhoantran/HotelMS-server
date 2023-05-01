@@ -27,6 +27,7 @@ class HotelModelViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdmin]
     queryset = Hotel.objects.all()
     serializer_class = HotelSerializer
+    lookup_field = "uuid"
 
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         try:
@@ -34,11 +35,25 @@ class HotelModelViewSet(viewsets.ModelViewSet):
         except IntegrityError:
             raise APIException(detail="Property with this external ID already exists")
 
+    @action(detail=True, methods=["POST"], permission_classes=[IsAdmin])
+    def sync(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        hotel: Hotel = self.get_object()
+        if hotel.pms == Hotel.PMSChoices.CHANNEX:
+            try:
+                HotelAPIKey.objects.get(hotel=hotel).delete()
+            except HotelAPIKey.DoesNotExist:
+                pass
+            _, api_key = HotelAPIKey.objects.create_key(hotel=hotel, name="API Key")
+            hotel.adapter.sync_up(api_key=api_key)
+            return Response(status=200)
+        return Response(status=400)
+
 
 class HotelEmployeeModelViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdmin]
     queryset = HotelEmployee.objects.all()
     serializer_class = HotelEmployeeSerializer
+    lookup_field = "uuid"
 
     @action(detail=False, methods=["GET"], permission_classes=[IsEmployee])
     def me(self, request, *args, **kwargs):
@@ -50,6 +65,7 @@ class HotelEmployeeModelViewSet(viewsets.ModelViewSet):
 class RoomTypeModelViewSet(viewsets.ModelViewSet):
     permission_classes = [IsManager | IsAdmin]
     serializer_class = RoomTypeSerializer
+    lookup_field = "uuid"
 
     def get_queryset(self):
         if self.request.user.role == User.UserRoleChoices.ADMIN:
@@ -60,6 +76,7 @@ class RoomTypeModelViewSet(viewsets.ModelViewSet):
 class RoomModelViewSet(viewsets.ModelViewSet):
     permission_classes = [IsManager | IsAdmin]
     serializer_class = RoomSerializer
+    lookup_field = "uuid"
 
     def get_queryset(self):
         if self.request.user.role == User.UserRoleChoices.ADMIN:

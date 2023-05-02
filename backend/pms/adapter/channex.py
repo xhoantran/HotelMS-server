@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from backend.rms.adapter import DynamicPricingAdapter
 from backend.utils.channex_client import ChannexClient
+from backend.utils.currency import get_currency_min_frac_size, is_valid_currency
 
 from ..models import RatePlan, RatePlanRestrictions, RoomType
 from .base import PMSBaseAdapter
@@ -39,32 +40,21 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         response = client.get_property(pms_id)
         return response.status_code == 200
 
-    def _set_up_room_type_webhook(
-        self,
-        room_type_uuid: str,
-        room_type_pms_id: str,
-        api_key: str,
-        callback_url: str,
-    ):
-        response = self.client.create_webhook(
-            property_id=str(self.hotel.pms_id),
-            callback_url=callback_url,
-            event_mask=f"ari:booked:{room_type_pms_id}:*",
-            request_params={"room_type_uuid": room_type_uuid},
-            headers={"Authorization": f"Api-Key {api_key}"},
-        )
-        if response.status_code != 201 and response.status_code != 422:
-            raise Exception(response.json())
-
     def sync_up(self, api_key: str):
         # Get properties
         response = self.client.get_property(self.hotel.pms_id)
         if response.status_code != 200:
             raise Exception(response.json())
         data = response.json().get("data")
-        # TODO: Update currency and time zone
+        self.hotel.name = data["attributes"]["title"]
+        self.hotel.address = data["attributes"]["address"]
+        self.hotel.city = data["attributes"]["city"]
+        self.hotel.country = data["attributes"]["country"]
+        self.hotel.currency = data["attributes"]["currency"]
+        is_valid_currency(self.hotel.currency)  # Check if currency is valid
+        self.hotel.timezone = data["attributes"]["timezone"]
         self.hotel.inventory_days = data["attributes"]["settings"]["state_length"]
-        self.hotel.save(update_fields=["inventory_days"])
+        self.hotel.save()
 
         # Get room types and rate plans
         data = self.client.get_room_types(property_id=self.hotel.pms_id)
@@ -106,11 +96,12 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                 room_type_id_map[str(room_type.pms_id)] = room_type.id
 
                 # Set up room type webhook
-                self._set_up_room_type_webhook(
-                    room_type_uuid=str(room_type.uuid),
-                    room_type_pms_id=str(room_type.pms_id),
-                    api_key=api_key,
+                self.client.update_or_create_webhook(
+                    property_id=str(self.hotel.pms_id),
                     callback_url=f"https://{current_site.domain}{reverse('pms:channex-availability-callback')}",
+                    event_mask=f"ari:booked:{str(room_type.pms_id)}:*",
+                    request_params={"room_type_uuid": str(room_type.uuid)},
+                    headers={"Authorization": f"Api-Key {api_key}"},
                 )
 
             # Get rate plans
@@ -219,8 +210,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             last_inventory_days (int): Last inventory days
         """
         return (
-            timezone.localtime()
-            + timezone.timedelta(days=self.hotel.inventory_days - 1)
+            timezone.now() + timezone.timedelta(days=self.hotel.inventory_days - 1)
         ).strftime("%Y-%m-%d")
 
     @staticmethod
@@ -269,7 +259,8 @@ class ChannexPMSAdapter(PMSBaseAdapter):
 
         restriction_update_to_channex = []
         restriction_create_to_db = []
-        current_datetime = timezone.localtime()
+        current_datetime = timezone.now()
+        currency_min_frac_size = get_currency_min_frac_size(self.hotel.currency)
         # Loop through each synced rate plan
         for rate_plan_pms_id, rate_plan_id in rate_plan_id_map.items():
             # Loop through each date
@@ -282,11 +273,14 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                 else:
                     original_rate = int(channex_data[rate_plan_pms_id][date]["rate"])
 
-                new_rate = self.rms_adapter.calculate_rate(
-                    rate=int(original_rate),
-                    date=timezone.datetime.strptime(date, "%Y-%m-%d").date(),
-                    current_datetime=current_datetime,
-                    occupancy=channex_data[rate_plan_pms_id][date]["booked"],
+                new_rate = (
+                    self.rms_adapter.calculate_rate(
+                        rate=int(original_rate),
+                        date=timezone.datetime.strptime(date, "%Y-%m-%d").date(),
+                        current_datetime=current_datetime,
+                        occupancy=channex_data[rate_plan_pms_id][date]["booked"],
+                    )
+                    * currency_min_frac_size
                 )
 
                 # If new rate is different from original rate, update it

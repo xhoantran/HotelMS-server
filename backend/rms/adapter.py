@@ -1,8 +1,9 @@
 import math
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from django.core.cache import cache
-from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 from backend.pms.models import Hotel
 
@@ -36,7 +37,7 @@ class DynamicPricingAdapter:
                 hotel=hotel
             )
         else:
-            raise ValueError("Must provide either a hotel or a setting")
+            raise ValidationError("Must provide either a hotel or a setting")
         self.load_from_cache()
 
     def load_from_db(self):
@@ -47,6 +48,7 @@ class DynamicPricingAdapter:
             DynamicPricingAdapter: The dynamic pricing adapter.
         """
         self.setting = DynamicPricingSetting.objects.get(pk=self.setting.id)
+        self.timezone = self.setting.hotel.timezone
         self.is_enabled = self.setting.is_enabled
         # Lead days based rules
         self.is_lead_days_based = self.setting.is_lead_days_based
@@ -121,9 +123,10 @@ class DynamicPricingAdapter:
         if self.is_time_based:
             self.time_based_trigger_rules = list(
                 TimeBasedTriggerRule.objects.filter(setting=self.setting)
-                # Priority is given to the lowest day_ahead and the latest trigger_time
-                .order_by("day_ahead", "-trigger_time").values(
-                    "trigger_time",
+                .order_by("day_ahead", "-hour", "-minute")
+                .values(
+                    "hour",
+                    "minute",
                     "percentage_factor",
                     "increment_factor",
                     "min_occupancy",
@@ -158,6 +161,7 @@ class DynamicPricingAdapter:
         cache.set(
             self.get_cache_key(self.setting.id),
             {
+                "timezone": self.timezone,
                 "is_enabled": self.is_enabled,
                 # Lead days based rules
                 "is_lead_days_based": self.is_lead_days_based,
@@ -193,6 +197,7 @@ class DynamicPricingAdapter:
             self.load_from_db()
             self.save_to_cache()
         else:
+            self.timezone = ret["timezone"]
             self.is_enabled = ret["is_enabled"]
             # Lead days based rules
             self.is_lead_days_based = ret["is_lead_days_based"]
@@ -245,7 +250,7 @@ class DynamicPricingAdapter:
             return (0, FactorChoices.PERCENTAGE)
         lead_days = (date - current_datetime.date()).days
         if lead_days < 0:
-            raise ValueError("Lead time must be positive.")
+            raise ValidationError("Lead time must be positive.")
         if lead_days >= len(self.lead_days_based_rules):
             return self._factor_to_repr(self.lead_days_based_rules[-1])
         return self._factor_to_repr(self.lead_days_based_rules[lead_days])
@@ -316,13 +321,16 @@ class DynamicPricingAdapter:
 
     @staticmethod
     def _get_trigger_datetime(
-        date: date, day_ahead: int, trigger_time: time
+        date: date,
+        day_ahead: int,
+        hour: int,
+        minute: int,
+        tzinfo: ZoneInfo,
     ) -> datetime:
-        return timezone.make_aware(
-            timezone.datetime.combine(
-                date - timezone.timedelta(days=day_ahead),
-                trigger_time,
-            )
+        return datetime.combine(
+            date - timedelta(days=day_ahead),
+            time(hour, minute),
+            tzinfo=tzinfo,
         )
 
     def get_time_based_factor(
@@ -345,13 +353,17 @@ class DynamicPricingAdapter:
         # Skip date in the past
         lead_days = (date - current_datetime.date()).days
         if lead_days < 0:
-            raise ValueError("Date must be in the future.")
+            raise ValidationError("Date must be in the future.")
         # Early return if not time based or lead days is too large
         if not self.is_time_based or lead_days > TimeBasedTriggerRule.MAX_DAY_AHEAD:
             return (0, FactorChoices.PERCENTAGE)
         for rule in self.time_based_trigger_rules:
             trigger_datetime = self._get_trigger_datetime(
-                date, rule["day_ahead"], rule["trigger_time"]
+                date,
+                rule["day_ahead"],
+                rule["hour"],
+                rule["minute"],
+                self.timezone,
             )
             if (
                 current_datetime >= trigger_datetime
@@ -376,7 +388,7 @@ class DynamicPricingAdapter:
         self,
         rate: int,
         date: date,
-        current_datetime: datetime,  # Use this parameter to avoid timezone.now() in the function
+        current_datetime: datetime,
         occupancy: int,
     ) -> int:
         """

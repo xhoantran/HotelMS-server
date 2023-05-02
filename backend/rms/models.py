@@ -1,5 +1,7 @@
+import uuid
 from datetime import datetime
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django_celery_beat.models import PeriodicTask
@@ -17,6 +19,7 @@ class FactorChoices:
 
 
 class DynamicPricingSetting(models.Model):
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     hotel = models.OneToOneField(
         Hotel,
         on_delete=models.CASCADE,
@@ -31,23 +34,31 @@ class DynamicPricingSetting(models.Model):
     is_occupancy_based = models.BooleanField(default=False)
     is_time_based = models.BooleanField(default=False)
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     def __str__(self) -> str:
         return f"{self.hotel.name} - DPS"
 
 
 class RuleFactor(models.Model):
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     percentage_factor = models.SmallIntegerField(default=0)
     increment_factor = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         abstract = True
 
     def save(self, *args, **kwargs):
         if self.percentage_factor < -100:
-            raise ValueError("Percentage factor cannot be less than -100")
+            raise ValidationError("Percentage factor cannot be less than -100")
 
         if not (bool(self.percentage_factor) ^ bool(self.increment_factor)):
-            raise ValueError("Either percentage factor or increment factor must be set")
+            raise ValidationError(
+                "Either percentage factor or increment factor must be set"
+            )
         super().save(*args, **kwargs)
 
 
@@ -97,7 +108,7 @@ class WeekdayBasedRule(RuleFactor):
 
     def save(self, *args, **kwargs):
         if self.weekday not in self.WeekdayChoices.values:
-            raise ValueError("Invalid weekday")
+            raise ValidationError("Invalid weekday")
         if not self.setting.is_weekday_based:
             raise RuleNotEnabledError("Weekday based rules are not enabled")
         super().save(*args, **kwargs)
@@ -134,7 +145,7 @@ class MonthBasedRule(RuleFactor):
 
     def save(self, *args, **kwargs):
         if self.month not in self.MonthChoices.values:
-            raise ValueError("Invalid month")
+            raise ValidationError("Invalid month")
         if not self.setting.is_month_based:
             raise RuleNotEnabledError("Month based rules are not enabled")
         super().save(*args, **kwargs)
@@ -163,7 +174,7 @@ class SeasonBasedRule(RuleFactor):
             datetime.strptime(f"{self.start_month}/{self.start_day}", "%m/%d")
             datetime.strptime(f"{self.end_month}/{self.end_day}", "%m/%d")
         except ValueError:
-            raise ValueError("Invalid start or end date")
+            raise ValidationError("Invalid start or end date")
         if not self.setting.is_season_based:
             raise RuleNotEnabledError("Season based rules are not enabled")
         super().save(*args, **kwargs)
@@ -195,7 +206,8 @@ class TimeBasedTriggerRule(RuleFactor):
         on_delete=models.CASCADE,
         related_name="time_based_trigger_rules",
     )
-    trigger_time = models.TimeField()
+    hour = models.PositiveSmallIntegerField()
+    minute = models.PositiveSmallIntegerField()
     min_occupancy = models.PositiveSmallIntegerField()
     max_occupancy = models.PositiveSmallIntegerField()
 
@@ -219,10 +231,14 @@ class TimeBasedTriggerRule(RuleFactor):
     )
 
     def save(self, *args, **kwargs):
+        if self.hour > 23:
+            raise ValidationError("Invalid hour")
+        if self.minute > 59:
+            raise ValidationError("Invalid minute")
         if self.min_occupancy > self.max_occupancy:
-            raise ValueError("Min occupancy cannot be greater than max occupancy")
+            raise ValidationError("Min occupancy cannot be greater than max occupancy")
         if self.day_ahead not in self.DayAheadChoices.values:
-            raise ValueError("Invalid day ahead")
+            raise ValidationError("Invalid day ahead")
         if not self.setting.is_time_based:
             raise RuleNotEnabledError("Time based rules are not enabled")
         super().save(*args, **kwargs)

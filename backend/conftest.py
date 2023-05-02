@@ -1,5 +1,4 @@
 import pytest
-from django.contrib.sites.models import Site
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -76,11 +75,6 @@ def get_api_client():
 
 
 @pytest.fixture
-def current_site(db):
-    return Site.objects.get_current()
-
-
-@pytest.fixture
 def hotel_factory(db) -> HotelFactory:
     return HotelFactory
 
@@ -125,6 +119,13 @@ def mocked_channex_validation(mocker):
                 return_value={
                     "data": {
                         "attributes": {
+                            "title": "Hotel Title",
+                            "address": "Address",
+                            "city": "City",
+                            "country": "VN",
+                            # We use VND because of its fractional unit is 1
+                            "currency": "VND",
+                            "timezone": "Asia/Ho_Chi_Minh",
                             "settings": {"state_length": 200},
                         }
                     }
@@ -147,7 +148,7 @@ def mocked_channex_validation(mocker):
         ),
     )
     mocker.patch(
-        "backend.utils.channex_client.ChannexClient.create_webhook",
+        "backend.utils.channex_client.ChannexClient.update_or_create_webhook",
         return_value=mocker.Mock(status_code=201),
     )
 

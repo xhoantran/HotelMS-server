@@ -1,53 +1,74 @@
 from rest_framework import serializers
 
 from .models import (
-    AvailabilityBasedTriggerRule,
     DynamicPricingSetting,
     LeadDaysBasedRule,
     MonthBasedRule,
+    OccupancyBasedTriggerRule,
     SeasonBasedRule,
     TimeBasedTriggerRule,
     WeekdayBasedRule,
 )
 
 
-class DynamicPricingSettingSerializer(serializers.ModelSerializer):
+class DynamicPricingSettingReadOnlySerializer(serializers.ModelSerializer):
     class Meta:
         model = DynamicPricingSetting
-        fields = "__all__"
+        fields = ("uuid", "is_enabled", "created_at", "updated_at")
 
 
-class LeadDaysBasedRuleSerializer(serializers.ModelSerializer):
+class RuleFactorSerializer(serializers.ModelSerializer):
+    setting = serializers.SlugRelatedField(
+        slug_field="uuid",
+        queryset=DynamicPricingSetting.objects.all(),
+    )
+
     class Meta:
+        exclude = ("id",)
+        extra_kwargs = {
+            "increment_factor": {"required": True},
+            "percentage_factor": {"required": True},
+        }
+
+
+class LeadDaysBasedRuleSerializer(RuleFactorSerializer):
+    class Meta(RuleFactorSerializer.Meta):
         model = LeadDaysBasedRule
-        fields = "__all__"
 
 
-class WeekdayBasedRuleSerializer(serializers.ModelSerializer):
-    class Meta:
+class WeekdayBasedRuleSerializer(RuleFactorSerializer):
+    class Meta(RuleFactorSerializer.Meta):
         model = WeekdayBasedRule
-        fields = "__all__"
 
 
-class MonthBasedRuleSerializer(serializers.ModelSerializer):
-    class Meta:
+class MonthBasedRuleSerializer(RuleFactorSerializer):
+    class Meta(RuleFactorSerializer.Meta):
         model = MonthBasedRule
-        fields = "__all__"
 
 
-class SeasonBasedRuleSerializer(serializers.ModelSerializer):
-    class Meta:
+class SeasonBasedRuleSerializer(RuleFactorSerializer):
+    class Meta(RuleFactorSerializer.Meta):
         model = SeasonBasedRule
-        fields = "__all__"
 
 
-class AvailabilityBasedTriggerRuleSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AvailabilityBasedTriggerRule
-        fields = "__all__"
+class OccupancyBasedTriggerRuleSerializer(RuleFactorSerializer):
+    class Meta(RuleFactorSerializer.Meta):
+        model = OccupancyBasedTriggerRule
 
 
-class TimeBasedTriggerRuleSerializer(serializers.ModelSerializer):
-    class Meta:
+class TimeBasedTriggerRuleSerializer(RuleFactorSerializer):
+    class Meta(RuleFactorSerializer.Meta):
         model = TimeBasedTriggerRule
-        fields = "__all__"
+
+
+class DynamicPricingSettingSerializer(serializers.ModelSerializer):
+    occupancy_based_trigger_rules = OccupancyBasedTriggerRuleSerializer(
+        required=False, read_only=True, many=True
+    )
+    time_based_trigger_rules = TimeBasedTriggerRuleSerializer(
+        required=False, read_only=True, many=True
+    )
+
+    class Meta:
+        model = DynamicPricingSetting
+        exclude = ("id", "hotel")

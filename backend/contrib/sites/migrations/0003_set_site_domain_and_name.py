@@ -40,8 +40,8 @@ def update_site_forward(apps, schema_editor):
     _update_or_create_site_with_sequence(
         Site,
         schema_editor.connection,
-        "app.hanz.com.vn",
-        "HotelPMS",
+        "api.hanz.com.vn",
+        "HotelMS",
     )
 
 
@@ -51,8 +51,8 @@ def update_site_backward(apps, schema_editor):
     _update_or_create_site_with_sequence(
         Site,
         schema_editor.connection,
-        "app.hanz.com.vn",
-        "app.hanz.com.vn",
+        "api.hanz.com.vn",
+        "api.hanz.com.vn",
     )
 
 

@@ -1,9 +1,9 @@
-.. HotelPMS documentation master file, created by
+.. HotelMS documentation master file, created by
    sphinx-quickstart.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to HotelPMS's documentation!
+Welcome to HotelMS's documentation!
 ======================================================================
 
 .. toctree::

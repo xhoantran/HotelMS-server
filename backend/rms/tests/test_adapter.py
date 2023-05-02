@@ -1,5 +1,9 @@
+import datetime
+from zoneinfo import ZoneInfo
+
 import pytest
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from ..adapter import DynamicPricingAdapter
@@ -36,7 +40,7 @@ def test_dynamic_pricing_adapter_cache(
 
 
 def test_dynamic_pricing_adapter_default():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         DynamicPricingAdapter(hotel=None)
 
 
@@ -88,7 +92,7 @@ def test_dynamic_pricing_adapter_lead_days_based(hotel_factory):
     last_rule.save()
 
     lead_day_window = setting.lead_day_window
-    current_datetime = timezone.localtime()
+    current_datetime = timezone.now()
 
     adapter = DynamicPricingAdapter(hotel=hotel)
 
@@ -96,7 +100,7 @@ def test_dynamic_pricing_adapter_lead_days_based(hotel_factory):
         date=current_datetime.date() + timezone.timedelta(days=lead_day_window + 1),
         current_datetime=current_datetime,
     ) == (-2, FactorChoices.PERCENTAGE)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         adapter.get_lead_days_based_factor(
             date=current_datetime.date() - timezone.timedelta(days=1),
             current_datetime=current_datetime,
@@ -110,15 +114,17 @@ def test_dynamic_pricing_adapter_lead_days_based(hotel_factory):
 def test_dynamic_pricing_adapter_weekday_based(
     hotel_factory, weekday_based_rule_factory
 ):
-    hotel = hotel_factory()
+    hotel = hotel_factory(timezone="Asia/Kolkata")
     setting = hotel.dynamic_pricing_setting
     setting.is_weekday_based = True
     setting.save()
 
+    local_datetime = timezone.localtime(timezone.now(), ZoneInfo("Asia/Kolkata"))
+
     # today weekday
     rule = weekday_based_rule_factory(
         setting=setting,
-        weekday=timezone.localtime().weekday() + 1,
+        weekday=local_datetime.weekday() + 1,  # weekday starts from 1
     )
     rule.percentage_factor = 10
     rule.save()
@@ -126,7 +132,7 @@ def test_dynamic_pricing_adapter_weekday_based(
     adapter = DynamicPricingAdapter(hotel=hotel)
 
     assert len(adapter.weekday_based_rules) == 7
-    assert adapter.get_weekday_based_factor(timezone.localtime()) == (
+    assert adapter.get_weekday_based_factor(local_datetime.date()) == (
         10,
         FactorChoices.PERCENTAGE,
     )
@@ -138,7 +144,7 @@ def test_dynamic_pricing_adapter_month_based(hotel_factory, month_based_rule_fac
     setting.is_month_based = True
     setting.save()
 
-    rule = month_based_rule_factory(month=timezone.localtime().month, setting=setting)
+    rule = month_based_rule_factory(month=timezone.now().month, setting=setting)
     adapter = DynamicPricingAdapter(hotel=hotel)
     rule.percentage_factor = 20
     rule.save()
@@ -146,7 +152,7 @@ def test_dynamic_pricing_adapter_month_based(hotel_factory, month_based_rule_fac
     adapter = DynamicPricingAdapter(hotel=hotel)
 
     assert len(adapter.month_based_rules) == 12
-    assert adapter.get_month_based_factor(timezone.localtime()) == (
+    assert adapter.get_month_based_factor(timezone.now()) == (
         20,
         FactorChoices.PERCENTAGE,
     )
@@ -159,8 +165,8 @@ def test_dynamic_pricing_adapter_season_based(hotel_factory, season_based_rule_f
     setting.save()
 
     # pick a random season
-    start_date = timezone.localtime().date() - timezone.timedelta(days=1)
-    end_date = timezone.localtime().date() + timezone.timedelta(days=1)
+    start_date = timezone.now().date() - timezone.timedelta(days=1)
+    end_date = timezone.now().date() + timezone.timedelta(days=1)
     season_based_rule_factory(
         setting=setting,
         start_day=start_date.day,
@@ -173,14 +179,14 @@ def test_dynamic_pricing_adapter_season_based(hotel_factory, season_based_rule_f
     adapter = DynamicPricingAdapter(hotel=hotel)
 
     assert len(adapter.season_based_rules) == 1
-    assert adapter.get_season_based_factor(timezone.localtime()) == (
+    assert adapter.get_season_based_factor(timezone.now()) == (
         10,
         FactorChoices.PERCENTAGE,
     )
 
     # Out of season
     assert adapter.get_season_based_factor(
-        timezone.localtime() + timezone.timedelta(days=2)
+        timezone.now() + timezone.timedelta(days=2)
     ) == (0, FactorChoices.PERCENTAGE)
 
 
@@ -190,10 +196,12 @@ def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_facto
     setting.is_time_based = True
     setting.save()
 
-    current_datetime = timezone.localtime()
+    # Define a rule for 10:00 AM
+    current_datetime = timezone.now().replace(hour=10, minute=0)
     time_based_rule_factory(
         setting=setting,
-        trigger_time=current_datetime.time(),
+        hour=current_datetime.hour,
+        minute=current_datetime.minute,
         percentage_factor=10,
         min_occupancy=5,
         max_occupancy=10,
@@ -203,9 +211,20 @@ def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_facto
     adapter = DynamicPricingAdapter(hotel=hotel)
 
     assert len(adapter.time_based_trigger_rules) == 1
+    # It should trigger
     assert adapter.get_time_based_factor(
         current_datetime.date(), current_datetime, 5
     ) == (10, FactorChoices.PERCENTAGE)
+
+    # It should also work with UTC time
+    assert adapter.get_time_based_factor(
+        current_datetime.date(), current_datetime.astimezone(datetime.timezone.utc), 5
+    ) == (10, FactorChoices.PERCENTAGE)
+
+    # It should not trigger
+    assert adapter.get_time_based_factor(
+        current_datetime.date(), current_datetime.replace(hour=9), 5
+    ) == (0, FactorChoices.PERCENTAGE)
 
     # Availability out of range
     assert adapter.get_time_based_factor(
@@ -214,7 +233,8 @@ def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_facto
 
     time_based_rule_factory(
         setting=setting,
-        trigger_time=(current_datetime - timezone.timedelta(hours=1)).time(),
+        hour=current_datetime.hour,
+        minute=current_datetime.minute,
         percentage_factor=20,
         min_occupancy=5,
         max_occupancy=10,
@@ -227,14 +247,15 @@ def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_facto
     assert adapter.get_time_based_factor(
         current_datetime.date(), current_datetime, 5
     ) == (10, FactorChoices.PERCENTAGE)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         adapter.get_time_based_factor(
             current_datetime.date() - timezone.timedelta(days=1), current_datetime, 5
         )
 
     time_based_rule_factory(
         setting=setting,
-        trigger_time=(current_datetime - timezone.timedelta(hours=1)).time(),
+        hour=9,
+        minute=0,
         percentage_factor=50,
         min_occupancy=5,
         max_occupancy=10,
@@ -268,8 +289,8 @@ def test_dynamic_pricing_adapter_calculate_rate(
     adapter = DynamicPricingAdapter(hotel=hotel)
     assert (
         adapter.calculate_rate(
-            date=timezone.localtime().date(),
-            current_datetime=timezone.localtime(),
+            date=timezone.now().date(),
+            current_datetime=timezone.now(),
             occupancy=10,
             rate=100,
         )
@@ -280,7 +301,7 @@ def test_dynamic_pricing_adapter_calculate_rate(
     occupancy_based_rule_factory(setting=setting, min_occupancy=1, increment_factor=150)
     lead_days_based_rule_factory(setting=setting, lead_days=0, percentage_factor=50)
 
-    current_datetime = timezone.localtime()
+    current_datetime = timezone.now()
     adapter = DynamicPricingAdapter(hotel=hotel)
 
     assert (

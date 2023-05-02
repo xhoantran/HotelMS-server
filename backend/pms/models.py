@@ -1,8 +1,10 @@
 import uuid
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import models
 from rest_framework_api_key.models import AbstractAPIKey
+from timezone_field import TimeZoneField
 
 User = get_user_model()
 
@@ -12,6 +14,16 @@ class Hotel(models.Model):
     name = models.CharField(max_length=255)
     inventory_days = models.SmallIntegerField(default=100)
 
+    address = models.CharField(max_length=255, null=True, blank=True)
+    city = models.CharField(max_length=128, null=True, blank=True)
+    country = models.CharField(max_length=2, null=True, blank=True)
+    currency = models.CharField(max_length=3, null=True, blank=True)
+    # TODO: Add logic to derive this from the city and country
+    timezone = TimeZoneField(use_pytz=False, default="UTC")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     class PMSChoices(models.TextChoices):
         CHANNEX = "CHANNEX", "Channex"
         __empty__ = "default"
@@ -19,14 +31,20 @@ class Hotel(models.Model):
     pms = models.CharField(
         max_length=16,
         choices=PMSChoices.choices,
-        default=PMSChoices.__empty__,
+        blank=True,
     )
     pms_id = models.UUIDField(null=True, blank=True)
     # TODO: This should be encrypted in production
     pms_api_key = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
-        unique_together = ("pms", "pms_id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["pms", "pms_id"],
+                name="unique_pms_id_per_pms",
+                violation_error_message="Property with this external ID already exists",
+            )
+        ]
 
     @property
     def adapter(self):
@@ -34,27 +52,28 @@ class Hotel(models.Model):
             from .adapter import ChannexPMSAdapter
 
             return ChannexPMSAdapter(self)
-        elif self.pms == self.PMSChoices.__empty__:
+        elif not self.pms:
             from .adapter import DefaultPMSAdapter
 
             return DefaultPMSAdapter(self)
         else:
-            raise ValueError("Invalid PMS")
+            raise ValidationError("Invalid PMS")
 
     def validate_pms(self):
-        if self.pms != self.PMSChoices.__empty__:
-            if not self.pms_id or not self.pms_api_key:
-                raise ValueError(
-                    "External ID and API Key are required for external PMS"
-                )
-            if not self.adapter.validate_api_key(self.pms_api_key):
-                raise ValueError("Invalid API Key")
-            if not self.adapter.validate_pms_id(self.pms_api_key, self.pms_id):
-                raise ValueError("Invalid external ID")
+        if not self.pms:
+            return
+        if not self.pms_id or not self.pms_api_key:
+            raise ValidationError(
+                "External ID and API Key are required for external PMS"
+            )
+        if not self.adapter.validate_api_key(self.pms_api_key):
+            raise ValidationError("Invalid API Key")
+        if not self.adapter.validate_pms_id(self.pms_api_key, self.pms_id):
+            raise ValidationError("Invalid external ID")
 
     def save(self, *args, **kwargs):
         if self.inventory_days < 100 or self.inventory_days > 700:
-            raise ValueError("Inventory days must be between 100 and 700")
+            raise ValidationError("Inventory days must be between 100 and 700")
         self.validate_pms()
         super().save(*args, **kwargs)
 
@@ -93,7 +112,9 @@ class HotelEmployee(models.Model):
             User.UserRoleChoices.RECEPTIONIST,
             User.UserRoleChoices.STAFF,
         ):
-            raise ValueError("Hotel employee must be a manager, receptionist or staff")
+            raise ValidationError(
+                "Hotel employee must be a manager, receptionist or staff"
+            )
         super().save(*args, **kwargs)
 
 
@@ -110,6 +131,9 @@ class RoomType(models.Model):
         max_digits=10, decimal_places=2, null=True, blank=True
     )
     pms_id = models.UUIDField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ("hotel", "pms_id")
@@ -128,6 +152,9 @@ class RatePlan(models.Model):
     )
     pms_id = models.UUIDField(null=True, blank=True)
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     class Meta:
         unique_together = ("room_type", "pms_id")
 
@@ -141,6 +168,7 @@ class RatePlanRestrictions(models.Model):
     )
     date = models.DateField()
     rate = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -157,6 +185,7 @@ class Room(models.Model):
     )
 
 
+# Deprecated
 class Booking(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     user = models.ForeignKey(

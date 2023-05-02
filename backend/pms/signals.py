@@ -35,10 +35,9 @@ def post_save_user(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Hotel, dispatch_uid="pms:post_save_hotel")
 def post_save_hotel(sender, instance: Hotel, created, **kwargs):
-    if created:
-        if instance.pms != Hotel.PMSChoices.__empty__:
-            _, api_key = HotelAPIKey.objects.create_key(hotel=instance, name="API Key")
-            instance.adapter.sync_up(api_key=api_key)
+    if created and instance.pms:
+        _, api_key = HotelAPIKey.objects.create_key(hotel=instance, name="API Key")
+        instance.adapter.sync_up(api_key=api_key)
 
 
 @receiver(post_save, sender=HotelEmployee, dispatch_uid="pms:post_save_hotel_employee")
@@ -50,14 +49,14 @@ def post_save_hotel_employee(sender, instance: HotelEmployee, created, **kwargs)
 
 @receiver(post_save, sender=RatePlan, dispatch_uid="pms:post_save_rate_plan")
 def post_save_rate_plan(sender, instance: RatePlan, created, **kwargs):
-    if created and instance.room_type.hotel.pms == Hotel.PMSChoices.__empty__:
+    if created and not instance.room_type.hotel.pms:
         rate_plan_restrictions = []
         window = instance.room_type.hotel.inventory_days
         for i in range(window + 1):
             rate_plan_restrictions.append(
                 RatePlanRestrictions(
                     rate_plan=instance,
-                    date=timezone.localtime() + timezone.timedelta(days=i),
+                    date=timezone.now() + timezone.timedelta(days=i),
                     rate=0,
                 )
             )
@@ -78,12 +77,14 @@ def validate_room(sender, instance: Room, **kwargs):
         raise ValidationError("Room number must be unique for the hotel")
 
 
+# Deprecated
 @receiver(pre_save, sender=Booking, dispatch_uid="pms:validate_booking")
 def validate_booking(sender, instance: Booking, **kwargs):
     if instance.user.role != User.UserRoleChoices.GUEST:
         raise ValidationError("User must be a guest")
     if instance.start_date >= instance.end_date:
         raise ValidationError("Start date must be before end date")
+    # TODO: Timezone aware
     if instance.start_date < timezone.localtime().date():
         raise ValidationError("Start date must be in the future")
     if instance.room.bookings.filter(

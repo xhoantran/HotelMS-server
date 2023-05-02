@@ -51,6 +51,21 @@ class ChannexClient:
             json=data,
         )
 
+    def _put(self, url, data=None, params=None, headers=None):
+        if params is None:
+            params = {}
+        if headers is None:
+            headers = {
+                "Content-Type": "application/json",
+            }
+        headers["user-api-key"] = self.api_key
+        return requests.put(
+            self.base_url + url,
+            params=params,
+            headers=headers,
+            json=data,
+        )
+
     def _delete(self, url, params=None, headers=None):
         if params is None:
             params = {}
@@ -73,7 +88,24 @@ class ChannexClient:
     def get_webhooks(self):
         return self._get("webhooks")
 
-    def create_webhook(
+    def _find_webhooks_id(
+        self,
+        callback_url: str,
+        event_mask: str,
+    ):
+        webhooks = self.get_webhooks().json().get("data", [])
+        try:
+            for webhook in webhooks:
+                if (
+                    webhook["attributes"]["callback_url"] == callback_url
+                    and webhook["attributes"]["event_mask"] == event_mask
+                ):
+                    return webhook["id"]
+        except KeyError:
+            ChannexClientAPIError("Failed to parse webhooks list api response")
+        return None
+
+    def _create_webhook(
         self,
         property_id: str,
         callback_url: str,
@@ -96,17 +128,103 @@ class ChannexClient:
         }
         return self._post("webhooks", data=data)
 
+    def update_or_create_webhook(
+        self,
+        property_id: str,
+        callback_url: str,
+        event_mask: str,
+        request_params: dict = {},
+        headers: dict = {},
+        is_active: bool = True,
+        send_data: bool = True,
+    ):
+        response = self._create_webhook(
+            property_id,
+            callback_url,
+            event_mask,
+            request_params,
+            headers,
+            is_active,
+            send_data,
+        )
+        if response.status_code == 201:
+            return response.json().get("data")
+
+        try:
+            error_message = response.json()["errors"]["details"]["property_id"][0]
+            if (
+                response.status_code == 422
+                and error_message
+                == "only one webhook for callback url and event mask allowed"
+            ):
+                webhook_id = self._find_webhooks_id(
+                    callback_url,
+                    event_mask,
+                )
+                if webhook_id:
+                    response = self._update_webhook(
+                        webhook_id,
+                        property_id,
+                        callback_url,
+                        event_mask,
+                        request_params,
+                        headers,
+                        is_active,
+                        send_data,
+                    )
+                    if response.status_code == 200:
+                        return
+                    raise ChannexClientAPIError(
+                        "Failed to update webhook", response.status_code
+                    )
+                raise ChannexClientAPIError(
+                    "Webhook already exists but cannot be found"
+                )
+        except KeyError:
+            error_message = "Unknown error"
+        raise ChannexClientAPIError(error_message, response.status_code)
+
+    # TODO: Deprecated
     def get_webhook(self, webhook_id):
         return self._get(f"webhooks/{webhook_id}")
 
+    def _update_webhook(
+        self,
+        webhook_id: str,
+        property_id: str,
+        callback_url: str,
+        event_mask: str,
+        request_params: dict = {},
+        headers: dict = {},
+        is_active: bool = True,
+        send_data: bool = True,
+    ):
+        return self._put(
+            f"webhooks/{webhook_id}",
+            data={
+                "webhook": {
+                    "property_id": property_id,
+                    "callback_url": callback_url,
+                    "event_mask": event_mask,
+                    "request_params": request_params,
+                    "headers": headers,
+                    "is_active": is_active,
+                    "send_data": send_data,
+                },
+            },
+        )
+
+    # TODO: Deprecated
     def delete_webhook(self, webhook_id):
         return self._delete(f"webhooks/{webhook_id}")
 
+    # TODO: Deprecated
     def get_properties(self, options: bool = True):
         if options:
             return self._get("properties/options")
         return self._get("properties")
 
+    # TODO: Deprecated
     def get_property(self, property_id):
         return self._get(f"properties/{property_id}")
 
@@ -121,6 +239,7 @@ class ChannexClient:
             raise ChannexClientAPIError(response.json(), response.status_code)
         return response.json().get("data")
 
+    # TODO: Deprecated
     def get_room_type(self, room_type_id):
         return self._get(f"room_types/{room_type_id}")
 
@@ -140,9 +259,11 @@ class ChannexClient:
             raise ChannexClientAPIError(response.json(), response.status_code)
         return response.json().get("data")
 
+    # TODO: Deprecated
     def get_rate_plan(self, rate_plan_id):
         return self._get(f"rate_plans/{rate_plan_id}")
 
+    # TODO: Deprecated
     def get_room_type_rate_plan_restrictions(
         self,
         property_pms_id: str,
@@ -164,5 +285,6 @@ class ChannexClient:
             raise ValueError("Must provide date or date_from and date_to")
         return self._get("restrictions/", params=params)
 
+    # TODO: Deprecated
     def update_room_type_rate_plan_restrictions(self, data: Iterator[dict]):
         return self._post("restrictions", data={"values": data})

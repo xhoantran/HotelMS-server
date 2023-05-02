@@ -41,6 +41,8 @@ def post_save_hotel(sender, instance: Hotel, created, **kwargs):
             month_based_rules.append(MonthBasedRule(setting=setting, month=i + 1))
         MonthBasedRule.objects.bulk_create(month_based_rules)
 
+    # TODO: Update celery task schedule if time zone is changed
+
 
 @receiver(post_save, sender=DynamicPricingSetting, dispatch_uid="rms:post_save_dps")
 def post_save_dynamic_pricing_setting(sender, instance, created, **kwargs):
@@ -76,22 +78,17 @@ def invalidate_dynamic_pricing_cache(sender, instance, created, **kwargs):
 def post_save_time_based_trigger_rule(
     sender, instance: TimeBasedTriggerRule, created, **kwargs
 ):
-    if isinstance(instance.trigger_time, str):
-        # Convert string to time object
-        instance.trigger_time = timezone.datetime.strptime(
-            instance.trigger_time, "%H:%M:%S"
-        ).time()
-
     if created:
         crontab, _ = CrontabSchedule.objects.get_or_create(
-            minute=instance.trigger_time.minute,
-            hour=instance.trigger_time.hour,
+            minute=instance.minute,
+            hour=instance.hour,
             day_of_week="*",
             day_of_month="*",
             month_of_year="*",
+            timezone=instance.setting.hotel.timezone,
         )
         instance.periodic_task = PeriodicTask.objects.create(
-            name=f"TimeBasedTriggerRule {instance.id} {instance.trigger_time}",
+            name=f"TimeBasedTriggerRule {instance.id} {instance.hour}:{instance.minute}",
             task="backend.rms.tasks.handle_time_based_trigger_rule",
             start_time=timezone.now(),
             crontab=crontab,
@@ -99,6 +96,7 @@ def post_save_time_based_trigger_rule(
                 {
                     "hotel_id": instance.setting.hotel.id,
                     "day_ahead": instance.day_ahead,
+                    "zone_info": str(instance.setting.hotel.timezone),
                 }
             ),
         )
@@ -106,20 +104,20 @@ def post_save_time_based_trigger_rule(
         return
 
     crontab, _ = CrontabSchedule.objects.get_or_create(
-        minute=instance.trigger_time.minute,
-        hour=instance.trigger_time.hour,
+        minute=instance.minute,
+        hour=instance.hour,
         day_of_week="*",
         day_of_month="*",
         month_of_year="*",
+        timezone=instance.setting.hotel.timezone,
     )
     instance.periodic_task.crontab = crontab
     instance.periodic_task.kwargs = json.dumps(
         {
             "hotel_id": instance.setting.hotel.id,
             "day_ahead": instance.day_ahead,
+            "zone_info": str(instance.setting.hotel.timezone),
         }
     )
-    instance.periodic_task.name = (
-        f"TimeBasedTriggerRule {instance.id} {instance.trigger_time}"
-    )
+    instance.periodic_task.name = f"Rule {instance.id} {instance.setting.hotel.name} {instance.hour}:{instance.minute}"
     instance.periodic_task.save()

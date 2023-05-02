@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 
 from ..models import RoomType
@@ -16,7 +17,7 @@ class RoomTypeAdapter:
         if end_date is None:
             return start_date
         if end_date < start_date:
-            raise ValueError("End date must be greater or equal to start date")
+            raise ValidationError("End date must be greater or equal to start date")
         return start_date
 
     def _get_booked_rooms(self, start_date, end_date=None):

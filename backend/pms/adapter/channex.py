@@ -1,3 +1,4 @@
+import math
 import uuid
 from datetime import date as date_class
 
@@ -275,9 +276,12 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                             "rate"
                         ]
                     else:
-                        original_rate = int(
-                            channex_data[rate_plan_pms_id][date]["rate"]
-                        )
+                        original_rate = channex_data[rate_plan_pms_id][date]["rate"]
+
+                    # If original rate is a string, convert it to int
+                    if isinstance(original_rate, str):
+                        original_rate = math.ceil(float(original_rate))
+
                     new_rate = (
                         self.rms_adapter.calculate_rate(
                             rate=int(original_rate),
@@ -285,6 +289,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                             current_datetime=current_datetime,
                             occupancy=channex_data[rate_plan_pms_id][date]["booked"],
                         )
+                        # Channex convention is multiplying by currency_min_frac_size
                         * currency_min_frac_size
                     )
                 # Unsynced rate plan
@@ -297,8 +302,9 @@ class ChannexPMSAdapter(PMSBaseAdapter):
                         mail_admins(
                             "Channex Sync Error",
                             f"Rate plan {unsynced_rate_plan.name} ({unsynced_rate_plan.room_type.hotel.name}"
-                            f" - {unsynced_rate_plan.room_type.name}) is not on Channex anymore but it is still in"
-                            " RMS. Please sync it manually. \nIf you believe this is an error, please contact our support team.",
+                            f" - {unsynced_rate_plan.room_type.name}) is not on Channex anymore but it is still "
+                            "in RMS. Please sync it manually. \nIf you believe this is an error, please contact "
+                            "our support team.",
                         )
                         continue
                     else:

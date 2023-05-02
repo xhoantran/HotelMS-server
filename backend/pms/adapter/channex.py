@@ -354,9 +354,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             )
             if response.status_code != 200:
                 raise Exception(response.json())
-            RatePlanRestrictions.objects.bulk_create(
-                restriction_create_to_db, ignore_conflicts=True
-            )
+            RatePlanRestrictions.objects.bulk_create(restriction_create_to_db)
 
     def handle_time_based_trigger(self, date: date_class):
         # List is important
@@ -383,6 +381,4 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             )
             if response.status_code != 200:
                 raise Exception(response.json())
-            RatePlanRestrictions.objects.bulk_create(
-                restriction_create_to_db, ignore_conflicts=True
-            )
+            RatePlanRestrictions.objects.bulk_create(restriction_create_to_db)

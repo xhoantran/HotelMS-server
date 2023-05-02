@@ -174,6 +174,9 @@ class RatePlanRestrictions(models.Model):
     class Meta:
         unique_together = ("rate_plan", "date")
 
+    def __str__(self) -> str:
+        return f"{self.rate_plan} - {self.date}"
+
 
 class Room(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)

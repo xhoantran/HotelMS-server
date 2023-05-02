@@ -40,6 +40,8 @@ class OccupancyBasedTriggerRuleAdmin(admin.ModelAdmin):
 
 @admin.display(description="Trigger Time")
 def trigger_time(obj):
+    if obj.minute < 10:
+        return f"{obj.hour}:0{obj.minute}"
     return f"{obj.hour}:{obj.minute}"
 
 

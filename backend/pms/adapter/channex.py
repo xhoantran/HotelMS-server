@@ -1,3 +1,4 @@
+import math
 import uuid
 from datetime import date as date_class
 
@@ -265,23 +266,49 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         for rate_plan_pms_id, rate_plan_id in rate_plan_id_map.items():
             # Loop through each date
             for date in sorted_date_range:
+                # The original rate on that date for that rate plan in db?
                 original_rate_in_db = date in saved_restrictions[rate_plan_pms_id]
 
-                # If original rate in db, use it, otherwise use channex data
-                if original_rate_in_db:
-                    original_rate = saved_restrictions[rate_plan_pms_id][date]["rate"]
-                else:
-                    original_rate = int(channex_data[rate_plan_pms_id][date]["rate"])
+                try:
+                    # If original rate in db, use it, otherwise use channex data
+                    if original_rate_in_db:
+                        original_rate = saved_restrictions[rate_plan_pms_id][date][
+                            "rate"
+                        ]
+                    else:
+                        original_rate = channex_data[rate_plan_pms_id][date]["rate"]
 
-                new_rate = (
-                    self.rms_adapter.calculate_rate(
-                        rate=int(original_rate),
-                        date=timezone.datetime.strptime(date, "%Y-%m-%d").date(),
-                        current_datetime=current_datetime,
-                        occupancy=channex_data[rate_plan_pms_id][date]["booked"],
+                    # If original rate is a string, convert it to int
+                    if isinstance(original_rate, str):
+                        original_rate = math.ceil(float(original_rate))
+
+                    new_rate = (
+                        self.rms_adapter.calculate_rate(
+                            rate=int(original_rate),
+                            date=timezone.datetime.strptime(date, "%Y-%m-%d").date(),
+                            current_datetime=current_datetime,
+                            occupancy=channex_data[rate_plan_pms_id][date]["booked"],
+                        )
+                        # Channex convention is multiplying by currency_min_frac_size
+                        * currency_min_frac_size
                     )
-                    * currency_min_frac_size
-                )
+                # Unsynced rate plan
+                except KeyError as e:
+                    if e.args[0] == rate_plan_pms_id:
+                        unsynced_rate_plan = RatePlan.objects.get(
+                            room_type__hotel=self.hotel,
+                            pms_id=rate_plan_pms_id,
+                        )
+                        mail_admins(
+                            "Channex Sync Error",
+                            f"Rate plan {unsynced_rate_plan.name} ({unsynced_rate_plan.room_type.hotel.name}"
+                            f" - {unsynced_rate_plan.room_type.name}) is not on Channex anymore but it is still "
+                            "in RMS. Please sync it manually. \nIf you believe this is an error, please contact "
+                            "our support team.",
+                        )
+                        continue
+                    else:
+                        raise e
 
                 # If new rate is different from original rate, update it
                 if new_rate != original_rate:

@@ -85,15 +85,24 @@ class ChannexClient:
             return date
         return date.strftime("%Y-%m-%d")
 
-    def get_webhooks(self):
-        return self._get("webhooks")
+    def get_webhooks(self, params=None):
+        return self._get("webhooks", params=params)
 
     def _find_webhooks_id(
         self,
         callback_url: str,
         event_mask: str,
     ):
-        webhooks = self.get_webhooks().json().get("data", [])
+        webhooks = (
+            self.get_webhooks(
+                params={
+                    "filter[callback_url]": callback_url,
+                    "filter[event_mask]": event_mask,
+                }
+            )
+            .json()
+            .get("data", [])
+        )
         try:
             for webhook in webhooks:
                 if (

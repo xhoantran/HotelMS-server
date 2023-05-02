@@ -3,6 +3,7 @@ from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 
 from backend.pms.models import Hotel
 
@@ -36,7 +37,7 @@ class DynamicPricingAdapter:
                 hotel=hotel
             )
         else:
-            raise ValueError("Must provide either a hotel or a setting")
+            raise ValidationError("Must provide either a hotel or a setting")
         self.load_from_cache()
 
     def load_from_db(self):
@@ -249,7 +250,7 @@ class DynamicPricingAdapter:
             return (0, FactorChoices.PERCENTAGE)
         lead_days = (date - current_datetime.date()).days
         if lead_days < 0:
-            raise ValueError("Lead time must be positive.")
+            raise ValidationError("Lead time must be positive.")
         if lead_days >= len(self.lead_days_based_rules):
             return self._factor_to_repr(self.lead_days_based_rules[-1])
         return self._factor_to_repr(self.lead_days_based_rules[lead_days])
@@ -352,7 +353,7 @@ class DynamicPricingAdapter:
         # Skip date in the past
         lead_days = (date - current_datetime.date()).days
         if lead_days < 0:
-            raise ValueError("Date must be in the future.")
+            raise ValidationError("Date must be in the future.")
         # Early return if not time based or lead days is too large
         if not self.is_time_based or lead_days > TimeBasedTriggerRule.MAX_DAY_AHEAD:
             return (0, FactorChoices.PERCENTAGE)

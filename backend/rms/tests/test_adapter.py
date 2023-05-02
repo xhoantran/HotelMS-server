@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from ..adapter import DynamicPricingAdapter
@@ -39,7 +40,7 @@ def test_dynamic_pricing_adapter_cache(
 
 
 def test_dynamic_pricing_adapter_default():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         DynamicPricingAdapter(hotel=None)
 
 
@@ -99,7 +100,7 @@ def test_dynamic_pricing_adapter_lead_days_based(hotel_factory):
         date=current_datetime.date() + timezone.timedelta(days=lead_day_window + 1),
         current_datetime=current_datetime,
     ) == (-2, FactorChoices.PERCENTAGE)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         adapter.get_lead_days_based_factor(
             date=current_datetime.date() - timezone.timedelta(days=1),
             current_datetime=current_datetime,
@@ -246,7 +247,7 @@ def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_facto
     assert adapter.get_time_based_factor(
         current_datetime.date(), current_datetime, 5
     ) == (10, FactorChoices.PERCENTAGE)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         adapter.get_time_based_factor(
             current_datetime.date() - timezone.timedelta(days=1), current_datetime, 5
         )

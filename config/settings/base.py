@@ -236,10 +236,7 @@ EMAIL_TIMEOUT = 5
 # Django Admin URL.
 ADMIN_URL = "admin/"
 # https://docs.djangoproject.com/en/dev/ref/settings/#admins
-ADMINS = [
-    ("Hoan Tran", "xhoantran@gmail.com"),
-    ("Minh Tran", "booking@hanz.com.vn"),
-]
+ADMINS = [("Hoan Tran", "xhoantran@gmail.com")]
 # https://docs.djangoproject.com/en/dev/ref/settings/#managers
 MANAGERS = ADMINS
 
@@ -328,6 +325,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "NON_FIELD_ERRORS_KEY": "detail",
+    "EXCEPTION_HANDLER": "config.exception_handler.custom_exception_handler",
 }
 
 

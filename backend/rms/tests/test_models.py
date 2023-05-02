@@ -1,4 +1,5 @@
 import pytest
+from django.core.exceptions import ValidationError
 
 from ..models import (
     PeriodicTask,
@@ -24,20 +25,20 @@ def test_rule_factor_save(
     setting.is_occupancy_based = True
     setting.save()
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         occupancy_based_rule_factory(
             percentage_factor=-101,
             setting=setting,
         )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         occupancy_based_rule_factory(
             percentage_factor=2,
             increment_factor=1,
             setting=setting,
         )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         occupancy_based_rule_factory(
             percentage_factor=0,
             increment_factor=0,
@@ -88,7 +89,7 @@ def test_weekday_based_rule_save(
 
     rule.increment_factor = 100000
     rule.weekday = 8
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         rule.save()
 
     rule.weekday = 1
@@ -115,7 +116,7 @@ def test_month_based_rule_save(
     rule.increment_factor = 100000
 
     rule.month = 13
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         rule.save()
 
     rule.month = 1
@@ -145,7 +146,7 @@ def test_season_based_rule_save(
     setting.save()
 
     season_based_rule_factory(percentage_factor=20, setting=setting)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         SeasonBasedRule.objects.create(
             setting=setting,
             name="Christmas but invalid...",
@@ -170,21 +171,21 @@ def test_time_based_rule_save(
     setting.is_time_based = True
     setting.save()
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         time_based_rule_factory(
             setting=setting,
             hour=24,
             minute=0,
             increment_factor=200000,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         time_based_rule_factory(
             setting=setting,
             hour=4,
             minute=60,
             increment_factor=200000,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         time_based_rule_factory(
             setting=setting,
             hour=23,
@@ -193,7 +194,7 @@ def test_time_based_rule_save(
             min_occupancy=1,
             max_occupancy=0,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         time_based_rule_factory(
             setting=setting,
             hour=23,

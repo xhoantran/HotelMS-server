@@ -2,6 +2,7 @@ import uuid
 import zoneinfo
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from backend.utils.format import convert_to_id
@@ -39,7 +40,7 @@ class TestRoomTypeAdapter:
                 end_date=bookings[1].end_date,
             )
             assert booked_room == 1
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             room_type_adapter.count_booked_rooms(
                 start_date=bookings[1].end_date,
                 end_date=bookings[0].start_date,

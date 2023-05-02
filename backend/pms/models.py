@@ -1,6 +1,7 @@
 import uuid
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import models
 from rest_framework_api_key.models import AbstractAPIKey
 from timezone_field import TimeZoneField
@@ -56,21 +57,23 @@ class Hotel(models.Model):
 
             return DefaultPMSAdapter(self)
         else:
-            raise ValueError("Invalid PMS")
+            raise ValidationError("Invalid PMS")
 
     def validate_pms(self):
         if not self.pms:
             return
         if not self.pms_id or not self.pms_api_key:
-            raise ValueError("External ID and API Key are required for external PMS")
+            raise ValidationError(
+                "External ID and API Key are required for external PMS"
+            )
         if not self.adapter.validate_api_key(self.pms_api_key):
-            raise ValueError("Invalid API Key")
+            raise ValidationError("Invalid API Key")
         if not self.adapter.validate_pms_id(self.pms_api_key, self.pms_id):
-            raise ValueError("Invalid external ID")
+            raise ValidationError("Invalid external ID")
 
     def save(self, *args, **kwargs):
         if self.inventory_days < 100 or self.inventory_days > 700:
-            raise ValueError("Inventory days must be between 100 and 700")
+            raise ValidationError("Inventory days must be between 100 and 700")
         self.validate_pms()
         super().save(*args, **kwargs)
 
@@ -109,7 +112,9 @@ class HotelEmployee(models.Model):
             User.UserRoleChoices.RECEPTIONIST,
             User.UserRoleChoices.STAFF,
         ):
-            raise ValueError("Hotel employee must be a manager, receptionist or staff")
+            raise ValidationError(
+                "Hotel employee must be a manager, receptionist or staff"
+            )
         super().save(*args, **kwargs)
 
 

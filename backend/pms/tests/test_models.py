@@ -1,5 +1,6 @@
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 
 from ..adapter import ChannexPMSAdapter, DefaultPMSAdapter
 from ..models import Hotel, HotelEmployee
@@ -17,12 +18,12 @@ class TestHotelModel:
     def test_validation(self, mocker, hotel_factory):
         hotel = hotel_factory()
         hotel.inventory_days = 99
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             hotel.save()
 
         hotel = hotel_factory()
         hotel.pms = Hotel.PMSChoices.CHANNEX
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             hotel.save()
 
         mocker.patch(
@@ -31,7 +32,7 @@ class TestHotelModel:
         )
         hotel.pms_api_key = "test"
         hotel.pms_id = "test"
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             hotel.save()
 
         mocker.patch(
@@ -42,13 +43,13 @@ class TestHotelModel:
             "backend.utils.channex_client.ChannexClient.get_property",
             return_value=mocker.Mock(status_code=404),
         )
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             hotel.save()
 
     def test_invalid_pms(self, hotel_factory):
         hotel = hotel_factory()
         hotel.pms = "invalid"
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             hotel.adapter
 
     def test_channex(self, mocked_channex_validation, hotel_factory):
@@ -63,7 +64,7 @@ def test_hotel_employee_model(db):
         name="test",
         role=User.UserRoleChoices.ADMIN,
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         HotelEmployee.objects.create(
             user=user,
             hotel=None,

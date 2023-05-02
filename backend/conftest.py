@@ -119,6 +119,7 @@ def mocked_channex_validation(mocker):
                 return_value={
                     "data": {
                         "attributes": {
+                            "title": "Hotel Title",
                             "address": "Address",
                             "city": "City",
                             "country": "VN",

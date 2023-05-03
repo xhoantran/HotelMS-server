@@ -19,7 +19,10 @@ class HotelSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Hotel
-        exclude = ("id", "pms_api_key")
+        exclude = ("id",)
+        extra_kwargs = {
+            "pms_api_key": {"write_only": True},
+        }
 
     def update(self, instance: Hotel, validated_data: Any) -> Any:
         if instance.pms == Hotel.PMSChoices.CHANNEX:

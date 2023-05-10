@@ -88,6 +88,7 @@ THIRD_PARTY_APPS = [
     "rest_framework_api_key",
     "corsheaders",
     "drf_spectacular",
+    "django_filters",
 ]
 
 LOCAL_APPS = [

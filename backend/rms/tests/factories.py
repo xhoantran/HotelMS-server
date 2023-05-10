@@ -20,6 +20,7 @@ from ..models import (
 class DynamicPricingSettingFactory(DjangoModelFactory):
     hotel = SubFactory(HotelFactory)
     lead_day_window = Faker("pyint", min_value=35, max_value=365)
+    default_base_rate = Faker("pyint", min_value=100, max_value=500)
 
     class Meta:
         model = DynamicPricingSetting
@@ -95,15 +96,10 @@ class OccupancyBasedTriggerRuleFactory(RuleFactoryFactory):
 class TimeBasedTriggerRuleFactory(RuleFactoryFactory):
     setting = SubFactory(DynamicPricingSettingFactory)
     hour = Faker("pyint", min_value=0, max_value=23)
-    minute = Faker("pyint", min_value=0, max_value=59)
-    min_occupancy = Faker("pyint", min_value=1, max_value=10)
-    max_occupancy = LazyAttribute(lambda o: o.min_occupancy + o.occupancy_gap)
+    min_occupancy = Sequence(lambda n: n + 1)
     day_ahead = Faker(
         "pyint", min_value=0, max_value=TimeBasedTriggerRule.MAX_DAY_AHEAD
     )
 
     class Meta:
         model = TimeBasedTriggerRule
-
-    class Params:
-        occupancy_gap = Faker("pyint", min_value=1, max_value=10)

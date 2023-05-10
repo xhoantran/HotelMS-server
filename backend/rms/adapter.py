@@ -10,9 +10,11 @@ from backend.pms.models import Hotel
 from .models import (
     DynamicPricingSetting,
     FactorChoices,
+    IntervalBaseRate,
     LeadDaysBasedRule,
     MonthBasedRule,
     OccupancyBasedTriggerRule,
+    RatePlanPercentageFactor,
     SeasonBasedRule,
     TimeBasedTriggerRule,
     WeekdayBasedRule,
@@ -50,6 +52,24 @@ class DynamicPricingAdapter:
         self.setting = DynamicPricingSetting.objects.get(pk=self.setting.id)
         self.timezone = self.setting.hotel.timezone
         self.is_enabled = self.setting.is_enabled
+
+        # Base rate
+        self.default_base_rate = self.setting.default_base_rate
+        self.interval_base_rates = list(
+            IntervalBaseRate.objects.filter(setting=self.setting)
+            .order_by("dates")
+            .values("dates", "base_rate")
+        )
+        # Rate plan percentage factors
+        rate_plan_percentage_factors = list(
+            RatePlanPercentageFactor.objects.filter(
+                rate_plan__room_type__hotel=self.setting.hotel
+            ).values("rate_plan__id", "percentage_factor")
+        )
+        self.rate_plan_percentage_factors = {
+            factor["rate_plan__id"]: factor["percentage_factor"]
+            for factor in rate_plan_percentage_factors
+        }
         # Lead days based rules
         self.is_lead_days_based = self.setting.is_lead_days_based
         if self.is_lead_days_based:
@@ -123,14 +143,12 @@ class DynamicPricingAdapter:
         if self.is_time_based:
             self.time_based_trigger_rules = list(
                 TimeBasedTriggerRule.objects.filter(setting=self.setting)
-                .order_by("day_ahead", "-hour", "-minute")
+                .order_by("day_ahead", "-hour", "-min_occupancy")
                 .values(
                     "hour",
-                    "minute",
                     "percentage_factor",
                     "increment_factor",
                     "min_occupancy",
-                    "max_occupancy",
                     "day_ahead",
                 )
             )
@@ -163,6 +181,11 @@ class DynamicPricingAdapter:
             {
                 "timezone": self.timezone,
                 "is_enabled": self.is_enabled,
+                # Base rate
+                "default_base_rate": self.default_base_rate,
+                "interval_base_rates": self.interval_base_rates,
+                # Rate plan percentage factors
+                "rate_plan_percentage_factors": self.rate_plan_percentage_factors,
                 # Lead days based rules
                 "is_lead_days_based": self.is_lead_days_based,
                 "lead_days_based_rules": self.lead_days_based_rules,
@@ -199,6 +222,11 @@ class DynamicPricingAdapter:
         else:
             self.timezone = ret["timezone"]
             self.is_enabled = ret["is_enabled"]
+            # Base rate
+            self.default_base_rate = ret["default_base_rate"]
+            self.interval_base_rates = ret["interval_base_rates"]
+            # Rate plan percentage factors
+            self.rate_plan_percentage_factors = ret["rate_plan_percentage_factors"]
             # Lead days based rules
             self.is_lead_days_based = ret["is_lead_days_based"]
             self.lead_days_based_rules = ret["lead_days_based_rules"]
@@ -217,6 +245,16 @@ class DynamicPricingAdapter:
             # Time based trigger rules
             self.is_time_based = ret["is_time_based"]
             self.time_based_trigger_rules = ret["time_based_trigger_rules"]
+
+    def get_base_rate(self, date: date, rate_plan_id: int) -> int:
+        # Get the base rate for the given date and rate plan id.
+        base_rate = self.default_base_rate
+        for interval_base_rate in self.interval_base_rates:
+            if interval_base_rate["start"] <= date < interval_base_rate["end"]:
+                base_rate = interval_base_rate["base_rate"]
+                break
+        percentage_factor = self.rate_plan_percentage_factors[rate_plan_id]
+        return math.ceil(base_rate * percentage_factor)
 
     @staticmethod
     def _factor_to_repr(factor: dict()) -> tuple[float | int, int]:
@@ -324,12 +362,11 @@ class DynamicPricingAdapter:
         date: date,
         day_ahead: int,
         hour: int,
-        minute: int,
         tzinfo: ZoneInfo,
     ) -> datetime:
         return datetime.combine(
             date - timedelta(days=day_ahead),
-            time(hour, minute),
+            time(hour),
             tzinfo=tzinfo,
         )
 
@@ -354,7 +391,7 @@ class DynamicPricingAdapter:
         lead_days = (date - current_datetime.date()).days
         if lead_days < 0:
             raise ValidationError("Date must be in the future.")
-        # Early return if not time based or lead days is too large
+        # Early return if not time based or lead days is invalid
         if not self.is_time_based or lead_days > TimeBasedTriggerRule.MAX_DAY_AHEAD:
             return (0, FactorChoices.PERCENTAGE)
         for rule in self.time_based_trigger_rules:
@@ -362,19 +399,19 @@ class DynamicPricingAdapter:
                 date,
                 rule["day_ahead"],
                 rule["hour"],
-                rule["minute"],
                 self.timezone,
             )
             if (
                 current_datetime >= trigger_datetime
                 and occupancy >= rule["min_occupancy"]
-                and occupancy <= rule["max_occupancy"]
             ):
                 return self._factor_to_repr(rule)
         return (0, FactorChoices.PERCENTAGE)
 
     @staticmethod
-    def _calculate_rate_by_factors(rate: int, factors: list[tuple[int | float, int]]):
+    def _calculate_rate_by_factors(
+        base_rate: int, factors: list[tuple[int | float, int]]
+    ):
         percentage_sum = 0
         increment_sum = 0
         for factor in factors:
@@ -382,11 +419,11 @@ class DynamicPricingAdapter:
                 percentage_sum += factor[0]
             else:
                 increment_sum += factor[0]
-        return math.ceil(rate * (1 + percentage_sum / 100)) + increment_sum
+        return math.ceil(base_rate * (1 + percentage_sum / 100)) + increment_sum
 
     def calculate_rate(
         self,
-        rate: int,
+        rate_plan_id: int,
         date: date,
         current_datetime: datetime,
         occupancy: int,
@@ -403,8 +440,11 @@ class DynamicPricingAdapter:
         Returns:
             int: The calculated rate.
         """
+        base_rate = self.get_base_rate(date, rate_plan_id)
+
         if not self.is_enabled:
-            return rate
+            return base_rate
+
         factors = []
         factors.append(self.get_lead_days_based_factor(date, current_datetime))
         factors.append(self.get_weekday_based_factor(date))
@@ -412,4 +452,4 @@ class DynamicPricingAdapter:
         factors.append(self.get_season_based_factor(date))
         factors.append(self.get_occupancy_based_factor(occupancy))
         factors.append(self.get_time_based_factor(date, current_datetime, occupancy))
-        return self._calculate_rate_by_factors(rate, factors)
+        return self._calculate_rate_by_factors(base_rate, factors)

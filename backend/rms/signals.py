@@ -1,9 +1,11 @@
 import json
 
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from django_celery_beat.models import CrontabSchedule, PeriodicTask
+
+from backend.pms.models import RatePlan
 
 from .adapter import DynamicPricingAdapter
 from .models import (
@@ -12,6 +14,7 @@ from .models import (
     LeadDaysBasedRule,
     MonthBasedRule,
     OccupancyBasedTriggerRule,
+    RatePlanPercentageFactor,
     SeasonBasedRule,
     TimeBasedTriggerRule,
     WeekdayBasedRule,
@@ -42,6 +45,12 @@ def post_save_hotel(sender, instance: Hotel, created, **kwargs):
         MonthBasedRule.objects.bulk_create(month_based_rules)
 
     # TODO: Update celery task schedule if time zone is changed
+
+
+@receiver(post_save, sender=RatePlan, dispatch_uid="rms:post_save_rate_plan")
+def post_save_rate_plan(sender, instance: RatePlan, created, **kwargs):
+    if created:
+        RatePlanPercentageFactor.objects.create(rate_plan=instance)
 
 
 @receiver(post_save, sender=DynamicPricingSetting, dispatch_uid="rms:post_save_dps")
@@ -78,46 +87,52 @@ def invalidate_dynamic_pricing_cache(sender, instance, created, **kwargs):
 def post_save_time_based_trigger_rule(
     sender, instance: TimeBasedTriggerRule, created, **kwargs
 ):
-    if created:
-        crontab, _ = CrontabSchedule.objects.get_or_create(
-            minute=instance.minute,
-            hour=instance.hour,
-            day_of_week="*",
-            day_of_month="*",
-            month_of_year="*",
-            timezone=instance.setting.hotel.timezone,
-        )
-        instance.periodic_task = PeriodicTask.objects.create(
-            name=f"TimeBasedTriggerRule {instance.id} {instance.hour}:{instance.minute}",
-            task="backend.rms.tasks.handle_time_based_trigger_rule",
-            start_time=timezone.now(),
-            crontab=crontab,
-            kwargs=json.dumps(
-                {
-                    "hotel_id": instance.setting.hotel.id,
-                    "day_ahead": instance.day_ahead,
-                    "zone_info": str(instance.setting.hotel.timezone),
-                }
-            ),
-        )
-        instance.save()
-        return
+    original_periodic_task = instance.periodic_task
 
     crontab, _ = CrontabSchedule.objects.get_or_create(
-        minute=instance.minute,
-        hour=instance.hour,
+        hour=str(instance.hour),
+        minute="*",
         day_of_week="*",
         day_of_month="*",
         month_of_year="*",
         timezone=instance.setting.hotel.timezone,
     )
-    instance.periodic_task.crontab = crontab
-    instance.periodic_task.kwargs = json.dumps(
-        {
-            "hotel_id": instance.setting.hotel.id,
-            "day_ahead": instance.day_ahead,
-            "zone_info": str(instance.setting.hotel.timezone),
-        }
+    periodic_task, _ = PeriodicTask.objects.get_or_create(
+        name=f"TimeBasedTriggerRule at {instance.hour} for {instance.setting.hotel}",
+        task="backend.rms.tasks.handle_time_based_trigger_rule",
+        crontab=crontab,
+        kwargs=json.dumps(
+            {
+                "hotel_id": instance.setting.hotel.id,
+                "day_ahead": instance.day_ahead,
+                "zone_info": str(instance.setting.hotel.timezone),
+            }
+        ),
+        defaults={
+            "start_time": timezone.now(),
+        },
     )
-    instance.periodic_task.name = f"Rule {instance.id} {instance.setting.hotel.name} {instance.hour}:{instance.minute}"
-    instance.periodic_task.save()
+
+    # Update directly to avoid calling save() method of instance
+    TimeBasedTriggerRule.objects.filter(id=instance.id).update(
+        periodic_task=periodic_task.id
+    )
+
+    # Inject the updated periodic task to instance
+    instance.periodic_task = periodic_task
+
+    # If the periodic task is updated, delete the original one if it is not used by other rules
+    if not created and original_periodic_task.time_based_trigger_rules.count() == 0:
+        original_periodic_task.delete()
+
+
+@receiver(
+    post_delete,
+    sender=TimeBasedTriggerRule,
+    dispatch_uid="rms:post_delete_time_based_trigger_rule",
+)
+def post_delete_time_based_trigger_rule(
+    sender, instance: TimeBasedTriggerRule, **kwargs
+):
+    if instance.periodic_task.time_based_trigger_rules.count() == 0:
+        instance.periodic_task.delete()

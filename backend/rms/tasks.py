@@ -2,7 +2,7 @@ from zoneinfo import ZoneInfo
 
 from django.utils import timezone
 
-from backend.pms.adapter import ChannexPMSAdapter
+from backend.pms.adapter import ChannexCMAdapter
 from config.celery_app import app
 
 
@@ -12,5 +12,5 @@ def handle_time_based_trigger_rule(hotel_id: int, day_ahead: int, zone_info: str
     date = (
         timezone.now().astimezone(zone_info) + timezone.timedelta(days=day_ahead)
     ).date()
-    adapter = ChannexPMSAdapter(hotel_id)
+    adapter = ChannexCMAdapter(hotel_id)
     adapter.handle_time_based_trigger(date)

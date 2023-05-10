@@ -38,21 +38,13 @@ class OccupancyBasedTriggerRuleAdmin(admin.ModelAdmin):
         return ["setting__hotel__name", "min_occupancy"]
 
 
-@admin.display(description="Trigger Time")
-def trigger_time(obj):
-    if obj.minute < 10:
-        return f"{obj.hour}:0{obj.minute}"
-    return f"{obj.hour}:{obj.minute}"
-
-
 @admin.register(TimeBasedTriggerRule)
 class TimeBasedTriggerRuleAdmin(admin.ModelAdmin):
     list_display = [
         rule_hotel_name,
         "day_ahead",
-        trigger_time,
+        "hour",
         "min_occupancy",
-        "max_occupancy",
         "increment_factor",
         "percentage_factor",
     ]

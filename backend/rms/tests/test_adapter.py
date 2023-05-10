@@ -201,10 +201,8 @@ def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_facto
     time_based_rule_factory(
         setting=setting,
         hour=current_datetime.hour,
-        minute=current_datetime.minute,
         percentage_factor=10,
         min_occupancy=5,
-        max_occupancy=10,
         day_ahead=0,
     )
 
@@ -226,18 +224,15 @@ def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_facto
         current_datetime.date(), current_datetime.replace(hour=9), 5
     ) == (0, FactorChoices.PERCENTAGE)
 
-    # Availability out of range
     assert adapter.get_time_based_factor(
-        current_datetime.date(), current_datetime, 11
+        current_datetime.date(), current_datetime, 4
     ) == (0, FactorChoices.PERCENTAGE)
 
     time_based_rule_factory(
         setting=setting,
-        hour=current_datetime.hour,
-        minute=current_datetime.minute,
+        hour=current_datetime.replace(hour=11).hour,
         percentage_factor=20,
         min_occupancy=5,
-        max_occupancy=10,
         day_ahead=0,
     )
 
@@ -245,8 +240,9 @@ def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_facto
 
     # It should pick the one with the latest trigger time
     assert adapter.get_time_based_factor(
-        current_datetime.date(), current_datetime, 5
-    ) == (10, FactorChoices.PERCENTAGE)
+        current_datetime.date(), current_datetime.replace(hour=11), 5
+    ) == (20, FactorChoices.PERCENTAGE)
+
     with pytest.raises(ValidationError):
         adapter.get_time_based_factor(
             current_datetime.date() - timezone.timedelta(days=1), current_datetime, 5
@@ -255,15 +251,11 @@ def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_facto
     time_based_rule_factory(
         setting=setting,
         hour=9,
-        minute=0,
         percentage_factor=50,
         min_occupancy=5,
-        max_occupancy=10,
         day_ahead=1,
     )
-
     adapter = DynamicPricingAdapter(hotel=hotel)
-
     # The only rule that matches is the one with day_ahead=1
     assert adapter.get_time_based_factor(
         current_datetime.date() + timezone.timedelta(days=1),
@@ -273,11 +265,12 @@ def test_dynamic_pricing_adapter_time_based(hotel_factory, time_based_rule_facto
 
 
 def test_dynamic_pricing_adapter_calculate_rate(
-    hotel_factory,
+    rate_plan_factory,
     occupancy_based_rule_factory,
     lead_days_based_rule_factory,
 ):
-    hotel = hotel_factory()
+    rate_plan = rate_plan_factory()
+    hotel = rate_plan.room_type.hotel
     setting = hotel.dynamic_pricing_setting
 
     # Enable availability based and lead days based
@@ -292,9 +285,9 @@ def test_dynamic_pricing_adapter_calculate_rate(
             date=timezone.now().date(),
             current_datetime=timezone.now(),
             occupancy=10,
-            rate=100,
+            rate_plan_id=rate_plan.id,
         )
-        == 100
+        == setting.default_base_rate
     )
 
     # Create rules
@@ -309,18 +302,18 @@ def test_dynamic_pricing_adapter_calculate_rate(
             date=current_datetime.date(),
             current_datetime=current_datetime,
             occupancy=0,
-            rate=100,
+            rate_plan_id=rate_plan.id,
         )
-        == 150
+        == setting.default_base_rate * 1.5
     )
     assert (
         adapter.calculate_rate(
             date=current_datetime.date(),
             current_datetime=current_datetime,
             occupancy=1,
-            rate=100,
+            rate_plan_id=rate_plan.id,
         )
-        == 300
+        == setting.default_base_rate * 1.5 + 150
     )
 
     # Not enabled
@@ -333,7 +326,7 @@ def test_dynamic_pricing_adapter_calculate_rate(
             date=current_datetime.date(),
             current_datetime=current_datetime,
             occupancy=1,
-            rate=100,
+            rate_plan_id=rate_plan.id,
         )
-        == 100
+        == setting.default_base_rate
     )

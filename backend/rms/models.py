@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime
 
+from django.contrib.postgres.constraints import ExclusionConstraint
+from django.contrib.postgres.fields import DateRangeField, RangeOperators
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -13,9 +15,13 @@ class RuleNotEnabledError(Exception):
     pass
 
 
-class FactorChoices:
-    PERCENTAGE = 0
-    INCREMENT = 1
+class RatePlanPercentageFactor(models.Model):
+    rate_plan = models.OneToOneField(
+        "pms.RatePlan",
+        on_delete=models.CASCADE,
+        related_name="percentage_factor",
+    )
+    percentage_factor = models.SmallIntegerField(default=0)
 
 
 class DynamicPricingSetting(models.Model):
@@ -34,11 +40,40 @@ class DynamicPricingSetting(models.Model):
     is_occupancy_based = models.BooleanField(default=False)
     is_time_based = models.BooleanField(default=False)
 
+    default_base_rate = models.PositiveIntegerField(default=0)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
         return f"{self.hotel.name} - DPS"
+
+
+class IntervalBaseRate(models.Model):
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    setting = models.ForeignKey(
+        DynamicPricingSetting,
+        on_delete=models.CASCADE,
+        related_name="interval_base_rates",
+    )
+    dates = DateRangeField()
+    base_rate = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            ExclusionConstraint(
+                expressions=[
+                    ("dates", RangeOperators.OVERLAPS),
+                    ("setting", RangeOperators.EQUAL),
+                ],
+                name="exclude_overlapping_interval_base_rates",
+            ),
+        ]
+
+
+class FactorChoices:
+    PERCENTAGE = 0
+    INCREMENT = 1
 
 
 class RuleFactor(models.Model):
@@ -207,9 +242,7 @@ class TimeBasedTriggerRule(RuleFactor):
         related_name="time_based_trigger_rules",
     )
     hour = models.PositiveSmallIntegerField()
-    minute = models.PositiveSmallIntegerField()
     min_occupancy = models.PositiveSmallIntegerField()
-    max_occupancy = models.PositiveSmallIntegerField()
 
     class DayAheadChoices(models.IntegerChoices):
         TODAY = 0, _("Today")
@@ -222,28 +255,22 @@ class TimeBasedTriggerRule(RuleFactor):
         default=0,
     )
 
-    periodic_task = models.OneToOneField(
+    periodic_task = models.ForeignKey(
         PeriodicTask,
-        on_delete=models.SET_NULL,
-        related_name="time_based_trigger_rule",
+        on_delete=models.DO_NOTHING,
+        related_name="time_based_trigger_rules",
         null=True,
         blank=True,
     )
 
+    class Meta:
+        unique_together = ("setting", "hour", "day_ahead", "min_occupancy")
+
     def save(self, *args, **kwargs):
         if self.hour > 23:
             raise ValidationError("Invalid hour")
-        if self.minute > 59:
-            raise ValidationError("Invalid minute")
-        if self.min_occupancy > self.max_occupancy:
-            raise ValidationError("Min occupancy cannot be greater than max occupancy")
         if self.day_ahead not in self.DayAheadChoices.values:
             raise ValidationError("Invalid day ahead")
         if not self.setting.is_time_based:
             raise RuleNotEnabledError("Time based rules are not enabled")
         super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        if self.periodic_task:
-            self.periodic_task.delete()
-        return super().delete(*args, **kwargs)

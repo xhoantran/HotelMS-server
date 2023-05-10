@@ -15,12 +15,11 @@ def test_post_save_time_based_trigger_rule(
     rule = time_based_rule_factory(
         setting=setting,
         hour=10,
-        minute=0,
         increment_factor=10000,
     )
     assert rule.periodic_task is not None
-    assert rule.periodic_task.crontab.minute == "0"
     assert rule.periodic_task.crontab.hour == "10"
+    assert rule.periodic_task.crontab.minute == "*"
     assert rule.periodic_task.crontab.day_of_week == "*"
     assert rule.periodic_task.crontab.day_of_month == "*"
     assert rule.periodic_task.crontab.month_of_year == "*"
@@ -35,12 +34,11 @@ def test_post_save_time_based_trigger_rule(
 
     # Update trigger time
     rule.hour = 11
-    rule.minute = 0
     rule.save()
     rule = TimeBasedTriggerRule.objects.get(setting=setting, id=rule.id)
     assert rule.periodic_task is not None
-    assert rule.periodic_task.crontab.minute == "0"
     assert rule.periodic_task.crontab.hour == "11"
+    assert rule.periodic_task.crontab.minute == "*"
     assert rule.periodic_task.crontab.day_of_week == "*"
     assert rule.periodic_task.crontab.day_of_month == "*"
     assert rule.periodic_task.crontab.month_of_year == "*"
@@ -59,7 +57,6 @@ def test_post_save_dynamic_pricing_setting(
     rule = time_based_rule_factory(
         setting=setting,
         hour=10,
-        minute=0,
         increment_factor=100000,
     )
     rule = TimeBasedTriggerRule.objects.get(setting=setting)

@@ -41,6 +41,7 @@ class ChannexPMSAdapter(PMSBaseAdapter):
         response = client.get_property(pms_id)
         return response.status_code == 200
 
+    # TODO: Create a wrapper function for sync_up to handle exceptions (retry, etc.)
     def sync_up(self, api_key: str):
         # Get properties
         response = self.client.get_property(self.hotel.pms_id)
@@ -82,56 +83,61 @@ class ChannexPMSAdapter(PMSBaseAdapter):
             ~Q(pms_id__in=room_type_pms_ids) & Q(hotel=self.hotel)
         ).delete()
 
-        # If hotel has room types, start creating rate plans
-        if len(room_types) > 0:
-            # If bulk_create not return id
-            if room_types[0].id is None:
-                room_types = RoomType.objects.filter(
-                    pms_id__in=room_type_pms_ids, hotel=self.hotel
-                )
+        # If hotel has no room types, stop
+        if len(room_types) == 0:
+            return
 
-            current_site = Site.objects.get_current()
-            room_type_id_map = {}
-            for room_type in room_types:
-                # Create room type id map
-                room_type_id_map[str(room_type.pms_id)] = room_type.id
-
-                # Set up room type webhook
-                self.client.update_or_create_webhook(
-                    property_id=str(self.hotel.pms_id),
-                    callback_url=f"https://{current_site.domain}{reverse('pms:channex-availability-callback')}",
-                    event_mask=f"ari:booked:{str(room_type.pms_id)}:*",
-                    request_params={"room_type_uuid": str(room_type.uuid)},
-                    headers={"Authorization": f"Api-Key {api_key}"},
-                )
-
-            # Get rate plans
-            data = self.client.get_rate_plans(property_id=self.hotel.pms_id)
-
-            # Create rate plans
-            rate_plan_pms_ids = []
-            rate_plan_objects = []
-            for rate_plan in data:
-                rate_plan_objects.append(
-                    RatePlan(
-                        name=rate_plan["attributes"]["title"],
-                        pms_id=rate_plan["id"],
-                        # using room_type_id_map to get the id of the room type
-                        room_type_id=room_type_id_map[
-                            rate_plan["attributes"]["room_type_id"]
-                        ],
-                    )
-                )
-                rate_plan_pms_ids.append(rate_plan["id"])
-            RatePlan.objects.bulk_create(
-                rate_plan_objects,
-                update_conflicts=True,
-                update_fields=["name"],
-                unique_fields=["pms_id", "room_type_id"],
+        # If bulk_create not return id
+        if room_types[0].id is None:
+            room_types = RoomType.objects.filter(
+                pms_id__in=room_type_pms_ids, hotel=self.hotel
             )
-            RatePlan.objects.filter(
-                ~Q(pms_id__in=rate_plan_pms_ids) & Q(room_type__hotel=self.hotel)
-            ).delete()
+
+        current_site = Site.objects.get_current()
+        room_type_id_map = {}
+        for room_type in room_types:
+            # Create room type id map
+            room_type_id_map[str(room_type.pms_id)] = room_type.id
+
+            # Set up room type webhook
+            self.client.update_or_create_webhook(
+                property_id=str(self.hotel.pms_id),
+                callback_url=f"https://{current_site.domain}{reverse('pms:channex-availability-callback')}",
+                event_mask=f"ari:booked:{str(room_type.pms_id)}:*",
+                request_params={"room_type_uuid": str(room_type.uuid)},
+                headers={"Authorization": f"Api-Key {api_key}"},
+            )
+
+        # Get rate plans
+        data = self.client.get_rate_plans(property_id=self.hotel.pms_id)
+
+        # Create rate plans
+        rate_plan_pms_ids = []
+        rate_plan_objects = []
+        for rate_plan in data:
+            # Assume that room type id is already created
+            # TODO: Handle race condition
+            rate_plan_objects.append(
+                RatePlan(
+                    name=rate_plan["attributes"]["title"],
+                    pms_id=rate_plan["id"],
+                    # using room_type_id_map to get the id of the room type
+                    room_type_id=room_type_id_map[
+                        rate_plan["attributes"]["room_type_id"]
+                    ],
+                )
+            )
+            rate_plan_pms_ids.append(rate_plan["id"])
+
+        RatePlan.objects.bulk_create(
+            rate_plan_objects,
+            update_conflicts=True,
+            update_fields=["name"],
+            unique_fields=["pms_id", "room_type_id"],
+        )
+        RatePlan.objects.filter(
+            ~Q(pms_id__in=rate_plan_pms_ids) & Q(room_type__hotel=self.hotel)
+        ).delete()
 
     def _get_synced_rate_plans_restrictions(
         self,

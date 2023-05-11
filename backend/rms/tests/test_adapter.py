@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.utils import timezone
 
 from backend.pms.models import RatePlanRestrictions
@@ -398,7 +399,7 @@ def test_calculate_and_update_rates(
     adapter = DynamicPricingAdapter(hotel=hotel)
     assert adapter.calculate_and_update_rates(
         room_types=[rate_plan.room_type.id],
-        dates=[start_date, end_date],
+        q_dates=Q(date__in=[start_date, end_date]),
     )
     # 100 + 50 because of the interval base rate and occupancy based rule
     assert (
@@ -413,5 +414,5 @@ def test_calculate_and_update_rates(
     # Nothing should happen
     assert not adapter.calculate_and_update_rates(
         room_types=[rate_plan.room_type.id],
-        dates=[start_date, end_date],
+        q_dates=Q(date__in=[start_date, end_date]),
     )

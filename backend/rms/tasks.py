@@ -2,8 +2,10 @@
 
 # from django.utils import timezone
 
-# from backend.pms.adapter import ChannexCMAdapter
+# from backend.pms.models import RoomType
 # from config.celery_app import app
+
+# from .adapter import DynamicPricingAdapter
 
 
 # @app.task
@@ -12,5 +14,6 @@
 #     date = (
 #         timezone.now().astimezone(zone_info) + timezone.timedelta(days=day_ahead)
 #     ).date()
-#     adapter = ChannexCMAdapter(hotel_id)
-#     adapter.handle_time_based_trigger(date)
+#     adapter = DynamicPricingAdapter(hotel=hotel_id)
+#     room_types = RoomType.objects.filter(hotel_id=hotel_id)
+#     adapter.calculate_and_update_rates(room_types=room_types, date=date)

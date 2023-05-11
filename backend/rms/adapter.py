@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.utils import timezone
 
 from backend.pms.models import Hotel, RatePlan, RatePlanRestrictions
@@ -460,13 +460,13 @@ class DynamicPricingAdapter:
         factors.append(self.get_time_based_factor(date, current_datetime, occupancy))
         return self._calculate_rate_by_factors(base_rate, factors)
 
-    def calculate_and_update_rates(self, room_types: list[int], dates: list[date]):
+    def calculate_and_update_rates(self, room_types: list[int], q_dates: Q):
         """
         Calculate and update rates for a given list of room types and dates.
 
         Args:
             room_types (list[int]): The internal room type IDs to calculate and update rates for.
-            dates (list[date]): The dates to calculate and update rates for.
+            q_dates (Q): The Q object to filter the dates to calculate and update rates for.
 
         Returns:
             bool: True if there was at least one rate updated, False otherwise.
@@ -477,7 +477,7 @@ class DynamicPricingAdapter:
         ).prefetch_related(
             Prefetch(
                 "restrictions",
-                queryset=RatePlanRestrictions.objects.filter(date__in=dates),
+                queryset=RatePlanRestrictions.objects.filter(q_dates),
                 to_attr="filtered_restrictions",
             )
         )

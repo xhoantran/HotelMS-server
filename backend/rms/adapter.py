@@ -4,8 +4,10 @@ from zoneinfo import ZoneInfo
 
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
+from django.db.models import Prefetch
+from django.utils import timezone
 
-from backend.pms.models import Hotel
+from backend.pms.models import Hotel, RatePlan, RatePlanRestrictions
 
 from .models import (
     DynamicPricingSetting,
@@ -250,11 +252,15 @@ class DynamicPricingAdapter:
         # Get the base rate for the given date and rate plan id.
         base_rate = self.default_base_rate
         for interval_base_rate in self.interval_base_rates:
-            if interval_base_rate["start"] <= date < interval_base_rate["end"]:
+            if (
+                interval_base_rate["dates"].lower
+                <= date
+                < interval_base_rate["dates"].upper
+            ):
                 base_rate = interval_base_rate["base_rate"]
                 break
         percentage_factor = self.rate_plan_percentage_factors[rate_plan_id]
-        return math.ceil(base_rate * percentage_factor)
+        return math.ceil(base_rate * (1 + percentage_factor / 100))
 
     @staticmethod
     def _factor_to_repr(factor: dict()) -> tuple[float | int, int]:
@@ -453,3 +459,51 @@ class DynamicPricingAdapter:
         factors.append(self.get_occupancy_based_factor(occupancy))
         factors.append(self.get_time_based_factor(date, current_datetime, occupancy))
         return self._calculate_rate_by_factors(base_rate, factors)
+
+    def calculate_and_update_rates(self, room_types: list[int], dates: list[date]):
+        """
+        Calculate and update rates for a given list of room types and dates.
+
+        Args:
+            room_types (list[int]): The internal room type IDs to calculate and update rates for.
+            dates (list[date]): The dates to calculate and update rates for.
+
+        Returns:
+            bool: True if there was at least one rate updated, False otherwise.
+        """
+        rate_plans = RatePlan.objects.filter(
+            room_type__hotel=self.setting.hotel,
+            room_type__id__in=room_types,
+        ).prefetch_related(
+            Prefetch(
+                "restrictions",
+                queryset=RatePlanRestrictions.objects.filter(date__in=dates),
+                to_attr="filtered_restrictions",
+            )
+        )
+        current_datetime = timezone.now()
+        restrictions = []
+
+        for rate_plan in rate_plans:
+            for restriction in rate_plan.filtered_restrictions:
+                if restriction.date < current_datetime.date():
+                    # Not gonna happend, but just in case
+                    # and worth to send notification
+                    continue
+
+                new_rate = self.calculate_rate(
+                    rate_plan_id=rate_plan.id,
+                    date=restriction.date,
+                    current_datetime=current_datetime,
+                    occupancy=restriction.booked,
+                )
+
+                if new_rate != restriction.rate:
+                    restriction.rate = new_rate
+                    restrictions.append(restriction)
+
+        # If number of updated rows is not 0
+        if RatePlanRestrictions.objects.bulk_update(restrictions, ["rate"]):
+            return True
+
+        return False

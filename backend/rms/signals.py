@@ -11,6 +11,7 @@ from .adapter import DynamicPricingAdapter
 from .models import (
     DynamicPricingSetting,
     Hotel,
+    IntervalBaseRate,
     LeadDaysBasedRule,
     MonthBasedRule,
     OccupancyBasedTriggerRule,
@@ -51,6 +52,7 @@ def post_save_hotel(sender, instance: Hotel, created, **kwargs):
 def post_save_rate_plan(sender, instance: RatePlan, created, **kwargs):
     if created:
         RatePlanPercentageFactor.objects.create(rate_plan=instance)
+    DynamicPricingAdapter.invalidate_cache(instance.room_type.hotel.id)
 
 
 @receiver(post_save, sender=DynamicPricingSetting, dispatch_uid="rms:post_save_dps")
@@ -69,6 +71,7 @@ def post_save_dynamic_pricing_setting(sender, instance, created, **kwargs):
     DynamicPricingAdapter.invalidate_cache(instance.id)
 
 
+@receiver(post_save, sender=IntervalBaseRate, dispatch_uid="rms:rm_cache")
 @receiver(post_save, sender=LeadDaysBasedRule, dispatch_uid="rms:rm_cache")
 @receiver(post_save, sender=WeekdayBasedRule, dispatch_uid="rms:rm_cache")
 @receiver(post_save, sender=MonthBasedRule, dispatch_uid="rms:rm_cache")

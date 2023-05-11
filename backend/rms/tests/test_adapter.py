@@ -6,6 +6,8 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from backend.pms.models import RatePlanRestrictions
+
 from ..adapter import DynamicPricingAdapter
 from ..models import FactorChoices, LeadDaysBasedRule
 
@@ -17,7 +19,6 @@ def test_dynamic_pricing_adapter_cache(
 ):
     hotel = hotel_factory()
     room_type_factory.create_batch(10, hotel=hotel)
-    hotel_id = str(hotel.id)
     adapter = DynamicPricingAdapter(hotel=hotel)
     db_weekday_based_rules = adapter.weekday_based_rules
     db_month_based_rules = adapter.month_based_rules
@@ -25,8 +26,9 @@ def test_dynamic_pricing_adapter_cache(
     db_occupancy_based_trigger_rules = adapter.occupancy_based_trigger_rules
     db_lead_days_based_rules = adapter.lead_days_based_rules
     db_time_based_trigger_rules = adapter.time_based_trigger_rules
-    with django_assert_num_queries(1):
-        adapter = DynamicPricingAdapter(hotel=hotel_id)
+    setting = hotel.dynamic_pricing_setting
+    with django_assert_num_queries(0):
+        adapter = DynamicPricingAdapter(setting=setting)
         assert adapter.weekday_based_rules == db_weekday_based_rules
         assert adapter.month_based_rules == db_month_based_rules
         assert adapter.season_based_rules == db_season_based_rules
@@ -42,6 +44,29 @@ def test_dynamic_pricing_adapter_cache(
 def test_dynamic_pricing_adapter_default():
     with pytest.raises(ValidationError):
         DynamicPricingAdapter(hotel=None)
+
+
+def test_dynamic_pricing_adapter_interval_base_rate(
+    hotel_factory,
+    interval_base_rate_factory,
+    rate_plan_factory,
+):
+    rate_plan = rate_plan_factory()
+    hotel = rate_plan.room_type.hotel
+    start_date = datetime.datetime.now().date()
+    end_date = start_date + datetime.timedelta(days=10)
+    interval_base_rate = interval_base_rate_factory(
+        setting=hotel.dynamic_pricing_setting,
+        dates=(start_date, end_date),
+    )
+    adapter = DynamicPricingAdapter(hotel=hotel)
+    assert (
+        adapter.get_base_rate(
+            date=start_date,
+            rate_plan_id=rate_plan.id,
+        )
+        == interval_base_rate.base_rate
+    )
 
 
 def test_dynamic_pricing_adapter_occupancy_based(
@@ -82,6 +107,12 @@ def test_dynamic_pricing_adapter_occupancy_based(
 def test_dynamic_pricing_adapter_lead_days_based(hotel_factory):
     hotel = hotel_factory()
     setting = hotel.dynamic_pricing_setting
+    adapter = DynamicPricingAdapter(hotel=hotel)
+    assert adapter.get_lead_days_based_factor(
+        date=timezone.now().date(),
+        current_datetime=timezone.now(),
+    ) == (0, FactorChoices.PERCENTAGE)
+
     setting.is_lead_days_based = True
     setting.save()
 
@@ -329,4 +360,58 @@ def test_dynamic_pricing_adapter_calculate_rate(
             rate_plan_id=rate_plan.id,
         )
         == setting.default_base_rate
+    )
+
+
+def test_calculate_and_update_rates(
+    rate_plan_factory,
+    occupancy_based_rule_factory,
+    interval_base_rate_factory,
+):
+    rate_plan = rate_plan_factory()
+    hotel = rate_plan.room_type.hotel
+    setting = hotel.dynamic_pricing_setting
+    setting.default_base_rate = 120
+    setting.is_occupancy_based = True
+    setting.save()
+
+    start_date = timezone.now().date() + timezone.timedelta(days=1)
+    end_date = start_date + timezone.timedelta(days=2)
+
+    # Update a rate plan restriction
+    restriction = RatePlanRestrictions.objects.get(
+        rate_plan=rate_plan,
+        date=start_date,
+    )
+    restriction.booked = 2
+    restriction.save()
+
+    # Set up rules
+    occupancy_based_rule_factory(setting=setting, min_occupancy=1, increment_factor=50)
+    interval_base_rate_factory(
+        setting=setting,
+        dates=(start_date, end_date),
+        base_rate=100,
+    )
+
+    # Calculate rates
+    adapter = DynamicPricingAdapter(hotel=hotel)
+    assert adapter.calculate_and_update_rates(
+        room_types=[rate_plan.room_type.id],
+        dates=[start_date, end_date],
+    )
+    # 100 + 50 because of the interval base rate and occupancy based rule
+    assert (
+        RatePlanRestrictions.objects.get(rate_plan=rate_plan, date=start_date).rate
+        == 150
+    )
+    # 120 because of the default base rate
+    assert (
+        RatePlanRestrictions.objects.get(rate_plan=rate_plan, date=end_date).rate == 120
+    )
+
+    # Nothing should happen
+    assert not adapter.calculate_and_update_rates(
+        room_types=[rate_plan.room_type.id],
+        dates=[start_date, end_date],
     )

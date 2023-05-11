@@ -1,5 +1,3 @@
-from typing import Any
-
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from timezone_field.rest_framework import TimeZoneSerializerField
@@ -20,25 +18,36 @@ class HotelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Hotel
         exclude = ("id",)
-        extra_kwargs = {
-            "pms_api_key": {"write_only": True},
-        }
-
-    def update(self, instance: Hotel, validated_data: Any) -> Any:
-        if instance.pms == Hotel.PMSChoices.CHANNEX:
-            raise serializers.ValidationError(
-                "You can't update a hotel with Channex as PMS"
-            )
-        return super().update(instance, validated_data)
 
 
 class HotelEmployeeSerializer(serializers.ModelSerializer):
+    hotel = serializers.SlugRelatedField(
+        slug_field="uuid", queryset=Hotel.objects.all()
+    )
+
     class Meta:
         model = HotelEmployee
         exclude = ("id",)
 
 
+class RatePlanSerializer(serializers.ModelSerializer):
+    room_type = serializers.SlugRelatedField(
+        slug_field="uuid", queryset=RoomType.objects.all()
+    )
+
+    class Meta:
+        model = RatePlan
+        exclude = ("id",)
+
+    # TODO: validate room_type belongs to hotel
+
+
 class RoomTypeSerializer(serializers.ModelSerializer):
+    hotel = serializers.SlugRelatedField(
+        slug_field="uuid", queryset=Hotel.objects.all()
+    )
+    rate_plans = RatePlanSerializer(many=True, read_only=True)
+
     class Meta:
         model = RoomType
         exclude = ("id",)
@@ -54,23 +63,17 @@ class RoomTypeSerializer(serializers.ModelSerializer):
         return value
 
 
-class RatePlanSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RatePlan
-        exclude = ("id",)
-
-    # TODO: validate room_type belongs to hotel
-
-
 class RatePlanRestrictionsSerializer(serializers.ModelSerializer):
     class Meta:
         model = RatePlanRestrictions
-        exclude = ("id",)
-
-    # TODO: validate rate_plan belongs to hotel
+        exclude = ("id", "rate_plan")
 
 
 class RoomSerializer(serializers.ModelSerializer):
+    room_type = serializers.SlugRelatedField(
+        slug_field="uuid", queryset=RoomType.objects.all()
+    )
+
     class Meta:
         model = Room
         exclude = ("id",)

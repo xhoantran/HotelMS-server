@@ -4,10 +4,9 @@ from zoneinfo import ZoneInfo
 import pytest
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.db.models import Q
 from django.utils import timezone
 
-from backend.pms.models import RatePlanRestrictions
+from backend.pms.models import Booking, BookingRoom, RatePlanRestrictions
 
 from ..adapter import DynamicPricingAdapter
 from ..models import FactorChoices, LeadDaysBasedRule
@@ -19,7 +18,7 @@ def test_dynamic_pricing_adapter_cache(
     django_assert_num_queries,
 ):
     hotel = hotel_factory()
-    room_type_factory.create_batch(10, hotel=hotel)
+    room_type_factory.create_batch(2, hotel=hotel)
     adapter = DynamicPricingAdapter(hotel=hotel)
     db_weekday_based_rules = adapter.weekday_based_rules
     db_month_based_rules = adapter.month_based_rules
@@ -379,13 +378,24 @@ def test_calculate_and_update_rates(
     start_date = timezone.now().date() + timezone.timedelta(days=1)
     end_date = start_date + timezone.timedelta(days=2)
 
-    # Update a rate plan restriction
-    restriction = RatePlanRestrictions.objects.get(
-        rate_plan=rate_plan,
-        date=start_date,
+    booking = Booking.objects.create(
+        hotel=hotel,
+        dates=[start_date, start_date + timezone.timedelta(days=1)],
+        status=Booking.StatusChoices.NEW,
+        raw_data={},
     )
-    restriction.booked = 2
-    restriction.save()
+    BookingRoom.objects.create(
+        booking=booking,
+        room_type=rate_plan.room_type,
+        dates=[start_date, start_date + timezone.timedelta(days=1)],
+        raw_data={},
+    )
+    BookingRoom.objects.create(
+        booking=booking,
+        room_type=rate_plan.room_type,
+        dates=[start_date, start_date + timezone.timedelta(days=1)],
+        raw_data={},
+    )
 
     # Set up rules
     occupancy_based_rule_factory(setting=setting, min_occupancy=1, increment_factor=50)
@@ -399,7 +409,7 @@ def test_calculate_and_update_rates(
     adapter = DynamicPricingAdapter(hotel=hotel)
     assert adapter.calculate_and_update_rates(
         room_types=[rate_plan.room_type.id],
-        q_dates=Q(date__in=[start_date, end_date]),
+        dates=[start_date, end_date],
     )
     # 100 + 50 because of the interval base rate and occupancy based rule
     assert (
@@ -414,5 +424,5 @@ def test_calculate_and_update_rates(
     # Nothing should happen
     assert not adapter.calculate_and_update_rates(
         room_types=[rate_plan.room_type.id],
-        q_dates=Q(date__in=[start_date, end_date]),
+        dates=[start_date, end_date],
     )

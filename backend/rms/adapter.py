@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch
 from django.utils import timezone
 
 from backend.pms.models import Hotel, RatePlan, RatePlanRestrictions
@@ -460,24 +460,31 @@ class DynamicPricingAdapter:
         factors.append(self.get_time_based_factor(date, current_datetime, occupancy))
         return self._calculate_rate_by_factors(base_rate, factors)
 
-    def calculate_and_update_rates(self, room_types: list[int], q_dates: Q):
+    def calculate_and_update_rates(
+        self, room_types: list[int], dates: tuple[date, date]
+    ):
         """
         Calculate and update rates for a given list of room types and dates.
 
         Args:
             room_types (list[int]): The internal room type IDs to calculate and update rates for.
-            q_dates (Q): The Q object to filter the dates to calculate and update rates for.
+            dates (tuple[date, date]): The range of dates to calculate and update rates for.
 
         Returns:
             bool: True if there was at least one rate updated, False otherwise.
         """
+        room_type_inventory_map = (
+            self.setting.hotel.adapter.get_room_type_inventory_map(room_types, dates)
+        )
+
+        # Get rate plan restrictions
         rate_plans = RatePlan.objects.filter(
             room_type__hotel=self.setting.hotel,
             room_type__id__in=room_types,
         ).prefetch_related(
             Prefetch(
                 "restrictions",
-                queryset=RatePlanRestrictions.objects.filter(q_dates),
+                queryset=RatePlanRestrictions.objects.filter(date__range=dates),
                 to_attr="filtered_restrictions",
             )
         )
@@ -485,6 +492,7 @@ class DynamicPricingAdapter:
         restrictions = []
 
         for rate_plan in rate_plans:
+            room_type_id = rate_plan.room_type.id
             for restriction in rate_plan.filtered_restrictions:
                 if restriction.date < current_datetime.date():
                     # Not gonna happend, but just in case
@@ -495,7 +503,7 @@ class DynamicPricingAdapter:
                     rate_plan_id=rate_plan.id,
                     date=restriction.date,
                     current_datetime=current_datetime,
-                    occupancy=restriction.booked,
+                    occupancy=room_type_inventory_map[room_type_id][restriction.date],
                 )
 
                 if new_rate != restriction.rate:

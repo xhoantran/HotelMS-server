@@ -1,6 +1,7 @@
 import json
 
-from django.db.models.signals import post_delete, post_save
+from django.core.exceptions import ValidationError
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django_celery_beat.models import CrontabSchedule, PeriodicTask
@@ -51,8 +52,16 @@ def post_save_hotel(sender, instance: Hotel, created, **kwargs):
 @receiver(post_save, sender=RatePlan, dispatch_uid="rms:post_save_rate_plan")
 def post_save_rate_plan(sender, instance: RatePlan, created, **kwargs):
     if created:
-        RatePlanPercentageFactor.objects.create(rate_plan=instance)
+        RatePlanPercentageFactor.objects.create(rate_plan=instance, percentage_factor=0)
     DynamicPricingAdapter.invalidate_cache(instance.room_type.hotel.id)
+
+
+@receiver(pre_save, sender=DynamicPricingSetting, dispatch_uid="rms:pre_save_dps")
+def pre_save_dynamic_pricing_setting(sender, instance: DynamicPricingSetting, **kwargs):
+    if instance.is_enabled and instance.default_base_rate == 0:
+        raise ValidationError(
+            "Default base rate must be greater than 0 if dynamic pricing is enabled."
+        )
 
 
 @receiver(post_save, sender=DynamicPricingSetting, dispatch_uid="rms:post_save_dps")

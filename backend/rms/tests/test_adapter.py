@@ -305,6 +305,8 @@ def test_dynamic_pricing_adapter_calculate_rate(
     setting = hotel.dynamic_pricing_setting
 
     # Enable availability based and lead days based
+    setting.default_base_rate = 100
+    setting.is_enabled = True
     setting.is_occupancy_based = True
     setting.is_lead_days_based = True
     setting.save()
@@ -352,15 +354,13 @@ def test_dynamic_pricing_adapter_calculate_rate(
     setting.save()
 
     adapter = DynamicPricingAdapter(hotel=hotel)
-    assert (
+    with pytest.raises(ValidationError):
         adapter.calculate_rate(
             date=current_datetime.date(),
             current_datetime=current_datetime,
             occupancy=1,
             rate_plan_id=rate_plan.id,
         )
-        == setting.default_base_rate
-    )
 
 
 def test_calculate_and_update_rates(
@@ -372,6 +372,7 @@ def test_calculate_and_update_rates(
     hotel = rate_plan.room_type.hotel
     setting = hotel.dynamic_pricing_setting
     setting.default_base_rate = 120
+    setting.is_enabled = True
     setting.is_occupancy_based = True
     setting.save()
 

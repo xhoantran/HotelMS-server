@@ -446,11 +446,10 @@ class DynamicPricingAdapter:
         Returns:
             int: The calculated rate.
         """
-        base_rate = self.get_base_rate(date, rate_plan_id)
-
         if not self.is_enabled:
-            return base_rate
+            raise ValidationError("Dynamic pricing is not enabled.")
 
+        base_rate = self.get_base_rate(date, rate_plan_id)
         factors = []
         factors.append(self.get_lead_days_based_factor(date, current_datetime))
         factors.append(self.get_weekday_based_factor(date))
@@ -462,7 +461,7 @@ class DynamicPricingAdapter:
 
     def calculate_and_update_rates(
         self, room_types: list[int], dates: tuple[date, date]
-    ):
+    ) -> list[RatePlanRestrictions]:
         """
         Calculate and update rates for a given list of room types and dates.
 
@@ -471,8 +470,11 @@ class DynamicPricingAdapter:
             dates (tuple[date, date]): The range of dates to calculate and update rates for.
 
         Returns:
-            bool: True if there was at least one rate updated, False otherwise.
+            list[RatePlanRestrictions]: The updated rate plan restrictions.
         """
+        if not self.is_enabled:
+            return []
+
         room_type_inventory_map = (
             self.setting.hotel.adapter.get_room_type_inventory_map(room_types, dates)
         )
@@ -491,6 +493,7 @@ class DynamicPricingAdapter:
         current_datetime = timezone.now()
         new_restrictions = []
 
+        # Loop through mapped rate plans
         for rate_plan in rate_plans:
             room_type_id = rate_plan.room_type.id
             for restriction in rate_plan.filtered_restrictions:

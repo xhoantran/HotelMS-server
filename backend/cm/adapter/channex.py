@@ -497,7 +497,7 @@ class ChannexAdapter:
         # Trigger occupancy update
         handle_occupancy_based_trigger.delay(
             hotel_id=self.cm_hotel_connector.pms.id,
-            room_types=affected_room_types,
+            room_types=list(affected_room_types),
             dates=(
                 datetime.strftime(booking.dates.lower, "%Y-%m-%d"),
                 datetime.strftime(booking.dates.upper, "%Y-%m-%d"),

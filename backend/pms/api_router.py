@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter, SimpleRouter
 from .views import (
     HotelEmployeeModelViewSet,
     HotelModelViewSet,
+    RatePlanModelViewSet,
     RoomModelViewSet,
     RoomTypeModelViewSet,
 )
@@ -27,6 +28,11 @@ router.register(
     "room-type",
     RoomTypeModelViewSet,
     basename="room-type",
+)
+router.register(
+    "rate-plan",
+    RatePlanModelViewSet,
+    basename="rate-plan",
 )
 router.register(
     "room",

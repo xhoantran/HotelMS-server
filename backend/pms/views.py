@@ -6,10 +6,11 @@ from rest_framework.decorators import action
 from backend.users.permissions import IsAdmin, IsEmployee, IsManager
 
 from .filters import RoomTypeFilter
-from .models import Hotel, HotelEmployee, Room, RoomType
+from .models import Hotel, HotelEmployee, RatePlan, Room, RoomType
 from .serializers import (
     HotelEmployeeSerializer,
     HotelSerializer,
+    RatePlanSerializer,
     RoomSerializer,
     RoomTypeSerializer,
 )
@@ -48,6 +49,19 @@ class RoomTypeModelViewSet(viewsets.ModelViewSet):
         if self.request.user.role == User.UserRoleChoices.ADMIN:
             return RoomType.objects.all()
         return RoomType.objects.filter(hotel=self.request.user.hotel_employee.hotel)
+
+
+class RatePlanModelViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsManager | IsAdmin]
+    serializer_class = RatePlanSerializer
+    lookup_field = "uuid"
+
+    def get_queryset(self):
+        if self.request.user.role == User.UserRoleChoices.ADMIN:
+            return RatePlan.objects.all()
+        return RatePlan.objects.filter(
+            room_type__hotel=self.request.user.hotel_employee.hotel
+        )
 
 
 class RoomModelViewSet(viewsets.ModelViewSet):

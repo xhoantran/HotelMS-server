@@ -2,7 +2,7 @@ import pytest
 from django.urls import reverse
 from rest_framework import status
 
-from .factories import HotelFactory, RoomFactory, RoomTypeFactory
+from .factories import HotelFactory, RoomTypeFactory
 
 
 @pytest.mark.django_db
@@ -34,30 +34,12 @@ def test_hotel_employee_model_view_set_me(manager, staff, receptionist, get_api_
 
 
 @pytest.mark.django_db
-def test_room_type_model_view_set_list(admin, manager, get_api_client):
-    # Setup
-    RoomTypeFactory()
-    RoomTypeFactory(hotel=manager.hotel_employee.hotel)
-
-    # Test
+def test_room_type_model_view_set_list_create(admin, manager, get_api_client):
     url = reverse("pms:room-type-list")
     admin_api_client = get_api_client(admin)
-    response = admin_api_client.get(url)
-    assert response.status_code == status.HTTP_200_OK
-    assert len(response.data) == 2
     manager_api_client = get_api_client(manager)
-    response = manager_api_client.get(url)
-    assert response.status_code == status.HTTP_200_OK
-    assert len(response.data) == 1
 
-
-@pytest.mark.django_db
-def test_room_type_model_view_set_admin_create(admin, manager, get_api_client):
-    # Setup
-    url = reverse("pms:room-type-list")
-    admin_api_client = get_api_client(admin)
-
-    # Test
+    # Test create
     response = admin_api_client.post(
         url,
         {
@@ -68,6 +50,17 @@ def test_room_type_model_view_set_admin_create(admin, manager, get_api_client):
         },
     )
     assert response.status_code == status.HTTP_201_CREATED
+
+    # Setup hotel not associated with manager
+    RoomTypeFactory()
+
+    # Test list
+    response = admin_api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.data) == 2
+    response = manager_api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.data) == 1
 
 
 @pytest.mark.django_db
@@ -101,9 +94,39 @@ def test_room_type_model_view_set_manager_create(manager, get_api_client):
 
 
 @pytest.mark.django_db
-def test_room_model_view_set_list(admin, manager, get_api_client):
+def test_rate_plan_model_view_set_list_create(
+    admin, manager, get_api_client, rate_plan_factory
+):
+    url = reverse("pms:rate-plan-list")
+    admin_api_client = get_api_client(admin)
+    manager_api_client = get_api_client(manager)
+
+    # Test create
+    response = admin_api_client.post(
+        url,
+        {
+            "name": "Test",
+            "room_type": RoomTypeFactory(hotel=manager.hotel_employee.hotel).uuid,
+        },
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+
+    # Setup rate plan not associated with manager
+    rate_plan_factory()
+
+    # Test list
+    response = admin_api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.data) == 2
+    response = manager_api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.data) == 1
+
+
+@pytest.mark.django_db
+def test_room_model_view_set_list(admin, get_api_client, room_factory):
     # Setup
-    RoomFactory()
+    room_factory()
     url = reverse("pms:room-list")
     admin_api_client = get_api_client(admin)
 

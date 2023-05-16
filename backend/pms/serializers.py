@@ -39,7 +39,15 @@ class RatePlanSerializer(serializers.ModelSerializer):
         model = RatePlan
         exclude = ("id",)
 
-    # TODO: validate room_type belongs to hotel
+    def validate_room_type(self, value):
+        if (
+            self.context["request"].user.role != User.UserRoleChoices.ADMIN
+            and value.hotel != self.context["request"].user.hotel_employee.hotel
+        ):
+            raise serializers.ValidationError(
+                "You can only create rate plans for your hotel"
+            )
+        return value
 
 
 class RoomTypeSerializer(serializers.ModelSerializer):

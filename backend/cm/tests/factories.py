@@ -3,34 +3,36 @@ from factory.django import DjangoModelFactory
 
 from backend.pms.tests.factories import HotelFactory, RatePlanFactory, RoomTypeFactory
 
-from ..models import CMHotel, CMRatePlan, CMRoomType, HotelAPIKey
+from ..models import CMHotelConnector, CMRatePlanConnector, CMRoomTypeConnector
 
 
-class CMHotelFactory(DjangoModelFactory):
-    hotel = SubFactory(HotelFactory)
+class CMHotelConnectorFactory(DjangoModelFactory):
+    pms = SubFactory(HotelFactory)
 
     class Params:
         channex = Trait(
-            cm=CMHotel.CMChoices.CHANNEX,
+            channel_manager=CMHotelConnector.ChannelManagerChoices.CHANNEX,
             cm_id=Faker("uuid4"),
             cm_api_key=Faker("password", length=32, special_chars=False),
         )
 
     class Meta:
-        model = CMHotel
+        model = CMHotelConnector
 
 
-class CMRoomTypeFactory(DjangoModelFactory):
-    room_type = SubFactory(RoomTypeFactory)
+class CMRoomTypeConnectorFactory(DjangoModelFactory):
+    pms = SubFactory(RoomTypeFactory)
+    cm_name = Faker("word")
     cm_id = Faker("uuid4")
 
     class Meta:
-        model = CMRoomType
+        model = CMRoomTypeConnector
 
 
-class CMRatePlanFactory(DjangoModelFactory):
-    rate_plan = SubFactory(RatePlanFactory)
+class CMRatePlanConnectorFactory(DjangoModelFactory):
+    pms = SubFactory(RatePlanFactory)
+    cm_name = Faker("word")
     cm_id = Faker("uuid4")
 
     class Meta:
-        model = CMRatePlan
+        model = CMRatePlanConnector

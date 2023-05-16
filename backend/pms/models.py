@@ -140,6 +140,9 @@ class Booking(models.Model):
 
     raw_data = models.JSONField()
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
 
 class BookingRoom(models.Model):
     booking = models.ForeignKey(
@@ -164,6 +167,8 @@ class BookingRoom(models.Model):
         blank=True,
         null=True,
     )
+
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         constraints = [

@@ -1,7 +1,7 @@
 from rest_framework_api_key.permissions import BaseHasAPIKey
 
-from .models import HotelAPIKey
+from .models import CMHotelConnectorAPIKey
 
 
-class HasCMHotelAPIKey(BaseHasAPIKey):
-    model = HotelAPIKey
+class HasCMHotelConnectorAPIKey(BaseHasAPIKey):
+    model = CMHotelConnectorAPIKey

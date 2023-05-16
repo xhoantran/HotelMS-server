@@ -489,7 +489,7 @@ class DynamicPricingAdapter:
             )
         )
         current_datetime = timezone.now()
-        restrictions = []
+        new_restrictions = []
 
         for rate_plan in rate_plans:
             room_type_id = rate_plan.room_type.id
@@ -508,10 +508,10 @@ class DynamicPricingAdapter:
 
                 if new_rate != restriction.rate:
                     restriction.rate = new_rate
-                    restrictions.append(restriction)
+                    new_restrictions.append(restriction)
 
         # If number of updated rows is not 0
-        if RatePlanRestrictions.objects.bulk_update(restrictions, ["rate"]):
-            return True
+        if RatePlanRestrictions.objects.bulk_update(new_restrictions, ["rate"]):
+            return new_restrictions
 
-        return False
+        return []

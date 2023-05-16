@@ -102,7 +102,7 @@ def post_save_time_based_trigger_rule(
     )
     periodic_task, _ = PeriodicTask.objects.get_or_create(
         name=f"TimeBasedTriggerRule at {instance.hour} for {instance.setting.hotel}",
-        task="backend.rms.tasks.handle_time_based_trigger_rule",
+        task="backend.rms.tasks.handle_time_based_trigger",
         crontab=crontab,
         kwargs=json.dumps(
             {

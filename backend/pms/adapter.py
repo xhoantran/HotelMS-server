@@ -22,6 +22,7 @@ class HotelAdapter:
             ~Q(booking__status=Booking.StatusChoices.CANCELLED),
             dates__overlap=dates,
             room_type__in=room_types,
+            room_type__hotel=self.hotel,
         ).values("room_type", "dates")
 
         # Initialize room type inventory map

@@ -1,1 +1,1 @@
-from .channex import ChannexCMAdapter  # noqa F401
+from .channex import ChannexAdapter, ChannexException  # noqa F401

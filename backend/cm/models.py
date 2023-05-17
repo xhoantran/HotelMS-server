@@ -13,10 +13,10 @@ class CMHotelConnector(models.Model):
     )
 
     class ChannelManagerChoices(models.TextChoices):
-        CHANNEX = "CHX", "Channex"
+        CHANNEX = "Channex", "Channex"
 
     channel_manager = models.CharField(
-        max_length=3,
+        max_length=16,
         choices=ChannelManagerChoices.choices,
         default=ChannelManagerChoices.CHANNEX,
     )

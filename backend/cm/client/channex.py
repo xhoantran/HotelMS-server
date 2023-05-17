@@ -85,25 +85,58 @@ class ChannexClient:
             return date
         return date.strftime("%Y-%m-%d")
 
-    # TODO: Add check response
-    def list_webhooks(self, params=None):
-        return self._get("webhooks", params=params)
-
-    # TODO: Add check response
-    def _find_webhook_id(
+    def list_webhooks(
         self,
+        property_id: str,
+        params: dict = {},
+        page: int = 1,
+        limit: int = 100,
+    ):
+        params = {
+            "filter[property_id]": property_id,
+            "pagination[page]": page,
+            "pagination[limit]": limit,
+            **params,
+        }
+        response = self._get("webhooks", params=params)
+        if response.status_code != 200:
+            raise ChannexClientAPIError("Failed to list webhooks", response.status_code)
+
+        return response.json().get("data")
+
+    def list_all_webhooks(
+        self,
+        property_id: str,
+        params: dict = {},
+        limit: int = 100,
+    ):
+        def _list_all_webhooks():
+            page = 1
+            while True:
+                data = self.list_webhooks(
+                    property_id=property_id,
+                    params=params,
+                    page=page,
+                    limit=limit,
+                )
+                yield from data
+                if len(data) < limit:
+                    break
+                page += 1
+
+        return list(_list_all_webhooks())
+
+    def find_webhook_id(
+        self,
+        property_id: str,
         callback_url: str,
         event_mask: str,
     ):
-        webhooks = (
-            self.list_webhooks(
-                params={
-                    "filter[callback_url]": callback_url,
-                    "filter[event_mask]": event_mask,
-                }
-            )
-            .json()
-            .get("data", [])
+        webhooks = self.list_all_webhooks(
+            property_id=property_id,
+            params={
+                "filter[callback_url]": callback_url,
+            },
         )
         try:
             for webhook in webhooks:
@@ -116,8 +149,7 @@ class ChannexClient:
             ChannexClientAPIError("Failed to parse webhooks list api response")
         return None
 
-    # TODO: Add check response
-    def _create_webhook(
+    def create_webhook(
         self,
         property_id: str,
         callback_url: str,
@@ -127,18 +159,25 @@ class ChannexClient:
         is_active: bool = True,
         send_data: bool = True,
     ):
-        data = {
-            "webhook": {
-                "property_id": property_id,
-                "callback_url": callback_url,
-                "event_mask": event_mask,
-                "request_params": request_params,
-                "headers": headers,
-                "is_active": is_active,
-                "send_data": send_data,
+        response = self._post(
+            "webhooks",
+            data={
+                "webhook": {
+                    "property_id": property_id,
+                    "callback_url": callback_url,
+                    "event_mask": event_mask,
+                    "request_params": request_params,
+                    "headers": headers,
+                    "is_active": is_active,
+                    "send_data": send_data,
+                }
             },
-        }
-        return self._post("webhooks", data=data)
+        )
+        if response.status_code != 201:
+            raise ChannexClientAPIError(
+                "Failed to create webhook", response.status_code
+            )
+        return response.json().get("data")
 
     def update_or_create_webhook(
         self,
@@ -150,14 +189,19 @@ class ChannexClient:
         is_active: bool = True,
         send_data: bool = True,
     ):
-        response = self._create_webhook(
-            property_id,
-            callback_url,
-            event_mask,
-            request_params,
-            headers,
-            is_active,
-            send_data,
+        response = self._post(
+            "webhooks",
+            data={
+                "webhook": {
+                    "property_id": property_id,
+                    "callback_url": callback_url,
+                    "event_mask": event_mask,
+                    "request_params": request_params,
+                    "headers": headers,
+                    "is_active": is_active,
+                    "send_data": send_data,
+                }
+            },
         )
         if response.status_code == 201:
             return response.json().get("data")
@@ -169,7 +213,8 @@ class ChannexClient:
                 and error_message
                 == "only one webhook for callback url and event mask allowed"
             ):
-                webhook_id = self._find_webhook_id(
+                webhook_id = self.find_webhook_id(
+                    property_id,
                     callback_url,
                     event_mask,
                 )
@@ -309,7 +354,11 @@ class ChannexClient:
         return self._post("restrictions", data={"values": data})
 
     def list_bookings(
-        self, property_id, params: dict = {}, page: int = 1, limit: int = 100
+        self,
+        property_id,
+        params: dict = {},
+        page: int = 1,
+        limit: int = 100,
     ):
         params = {
             "filter[property_id]": property_id,

@@ -10,7 +10,7 @@ def render_mail(template_prefix, email, context, headers=None):
     e-mail that is to be sent, e.g. "email/setup_hotel_confirmation"
     """
     to = [email] if isinstance(email, str) else email
-    subject = render_to_string("{0}_subject.txt".format(template_prefix), context)
+    subject = render_to_string(f"{template_prefix}_subject.txt", context)
     # remove superfluous line breaks
     subject = " ".join(subject.splitlines()).strip()
 
@@ -19,7 +19,7 @@ def render_mail(template_prefix, email, context, headers=None):
     bodies = {}
     for ext in ["html", "txt"]:
         try:
-            template_name = "{0}_message.{1}".format(template_prefix, ext)
+            template_name = f"{template_prefix}_message.{ext}"
             bodies[ext] = render_to_string(
                 template_name,
                 context,

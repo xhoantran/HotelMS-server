@@ -1,3 +1,4 @@
+from django.core.mail import mail_admins
 from django.db import transaction
 
 from backend.cm.models import CMHotelConnector
@@ -26,4 +27,8 @@ def setup_hotel_from_cm(channel_manager, cm_id, cm_api_key):
         # Setup booking webhook
         cm_hotel_connector.adapter.save_booking_webhook()
 
-        # TODO: Send email to hotel admin, both on success and failure
+        # Send email confirmation
+        mail_admins(
+            subject="Hotel migrated from CM successfully",
+            message=f"Hotel {cm_hotel_connector.pms.name} has been migrated from CM successfully",
+        )

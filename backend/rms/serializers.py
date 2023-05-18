@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from backend.utils.serializers import DateRangeField
+
 from .models import (
     DynamicPricingSetting,
     IntervalBaseRate,
@@ -28,9 +30,33 @@ class DynamicPricingSettingReadOnlySerializer(serializers.ModelSerializer):
 
 
 class IntervalBaseRateSerializer(serializers.ModelSerializer):
+    setting = serializers.SlugRelatedField(
+        slug_field="uuid",
+        queryset=DynamicPricingSetting.objects.all(),
+    )
+    dates = DateRangeField()
+
     class Meta:
         model = IntervalBaseRate
         exclude = ("id",)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if hasattr(self.instance, "pk"):
+            setting_id = self.instance.setting.pk
+            query = IntervalBaseRate.objects.filter(
+                setting_id=setting_id,
+                dates__overlap=attrs["dates"],
+            ).exclude(pk=self.instance.pk)
+        else:
+            query = IntervalBaseRate.objects.filter(
+                setting=attrs["setting"], dates__overlap=attrs["dates"]
+            )
+        if query.exists():
+            raise serializers.ValidationError(
+                "Date range overlaps with existing interval base rate"
+            )
+        return attrs
 
 
 class RuleFactorSerializer(serializers.ModelSerializer):
@@ -85,6 +111,9 @@ class DynamicPricingSettingSerializer(serializers.ModelSerializer):
         required=False, read_only=True, many=True
     )
     rate_plan_percentage_factors = serializers.SerializerMethodField()
+    interval_base_rates = IntervalBaseRateSerializer(
+        required=False, read_only=True, many=True
+    )
 
     class Meta:
         model = DynamicPricingSetting

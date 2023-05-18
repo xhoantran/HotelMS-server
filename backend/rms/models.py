@@ -54,7 +54,7 @@ class IntervalBaseRate(models.Model):
         related_name="interval_base_rates",
     )
     dates = DateRangeField()
-    base_rate = models.PositiveIntegerField(default=0)
+    base_rate = models.PositiveIntegerField()
 
     class Meta:
         constraints = [

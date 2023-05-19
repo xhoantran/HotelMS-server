@@ -7,6 +7,7 @@ from backend.pms.tests.factories import HotelFactory
 
 from ..models import (
     DynamicPricingSetting,
+    IntervalBaseRate,
     LeadDaysBasedRule,
     MonthBasedRule,
     OccupancyBasedTriggerRule,
@@ -27,7 +28,18 @@ class DynamicPricingSettingFactory(DjangoModelFactory):
         django_get_or_create = ("hotel",)
 
 
+class IntervalBaseRateFactory(DjangoModelFactory):
+    uuid = Faker("uuid4")
+    setting = SubFactory(DynamicPricingSettingFactory)
+    base_rate = Faker("pyint", min_value=100, max_value=500)
+
+    class Meta:
+        model = IntervalBaseRate
+        django_get_or_create = ("setting", "dates")
+
+
 class RuleFactoryFactory(DjangoModelFactory):
+    uuid = Faker("uuid4")
     setting = SubFactory(DynamicPricingSettingFactory)
 
     class Params:

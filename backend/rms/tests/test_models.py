@@ -9,6 +9,14 @@ from ..models import (
 )
 
 
+def test_dynamic_pricing(hotel_factory):
+    hotel = hotel_factory()
+    setting = hotel.dynamic_pricing_setting
+    with pytest.raises(ValidationError):
+        setting.is_enabled = True
+        setting.save()
+
+
 def test_rule_factor_save(
     db,
     dynamic_pricing_setting_factory,

@@ -5,6 +5,7 @@ from django.http.request import HttpRequest
 
 from .models import (
     DynamicPricingSetting,
+    IntervalBaseRate,
     OccupancyBasedTriggerRule,
     TimeBasedTriggerRule,
 )
@@ -47,7 +48,20 @@ class TimeBasedTriggerRuleAdmin(admin.ModelAdmin):
         "min_occupancy",
         "increment_factor",
         "percentage_factor",
+        "periodic_task_id",
     ]
 
     def get_ordering(self, request: HttpRequest) -> list[str] | tuple[Any, ...]:
-        return ["setting__hotel__name", "day_ahead", "hour", "minute", "min_occupancy"]
+        return ["setting__hotel__name", "day_ahead", "hour", "min_occupancy"]
+
+
+@admin.register(IntervalBaseRate)
+class IntervalBaseRateAdmin(admin.ModelAdmin):
+    list_display = [
+        rule_hotel_name,
+        "dates",
+        "base_rate",
+    ]
+
+    def get_ordering(self, request: HttpRequest) -> list[str] | tuple[Any, ...]:
+        return ["setting__hotel__name", "dates"]

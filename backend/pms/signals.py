@@ -5,15 +5,7 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 
-from backend.pms.models import (
-    Booking,
-    Hotel,
-    HotelAPIKey,
-    HotelEmployee,
-    RatePlan,
-    RatePlanRestrictions,
-    Room,
-)
+from backend.pms.models import HotelEmployee, RatePlan, RatePlanRestrictions, Room
 
 User = get_user_model()
 
@@ -33,13 +25,6 @@ def post_save_user(sender, instance, created, **kwargs):
             instance.save(update_fields=["is_active"])
 
 
-@receiver(post_save, sender=Hotel, dispatch_uid="pms:post_save_hotel")
-def post_save_hotel(sender, instance: Hotel, created, **kwargs):
-    if created and instance.pms:
-        _, api_key = HotelAPIKey.objects.create_key(hotel=instance, name="API Key")
-        instance.adapter.sync_up(api_key=api_key)
-
-
 @receiver(post_save, sender=HotelEmployee, dispatch_uid="pms:post_save_hotel_employee")
 def post_save_hotel_employee(sender, instance: HotelEmployee, created, **kwargs):
     if instance.hotel and instance.user.is_active is False:
@@ -49,7 +34,7 @@ def post_save_hotel_employee(sender, instance: HotelEmployee, created, **kwargs)
 
 @receiver(post_save, sender=RatePlan, dispatch_uid="pms:post_save_rate_plan")
 def post_save_rate_plan(sender, instance: RatePlan, created, **kwargs):
-    if created and not instance.room_type.hotel.pms:
+    if created:
         rate_plan_restrictions = []
         window = instance.room_type.hotel.inventory_days
         for i in range(window + 1):
@@ -75,24 +60,3 @@ def validate_room(sender, instance: Room, **kwargs):
         & ~Q(id=instance.id)
     ).exists():
         raise ValidationError("Room number must be unique for the hotel")
-
-
-# Deprecated
-@receiver(pre_save, sender=Booking, dispatch_uid="pms:validate_booking")
-def validate_booking(sender, instance: Booking, **kwargs):
-    if instance.user.role != User.UserRoleChoices.GUEST:
-        raise ValidationError("User must be a guest")
-    if instance.start_date >= instance.end_date:
-        raise ValidationError("Start date must be before end date")
-    # TODO: Timezone aware
-    if instance.start_date < timezone.localtime().date():
-        raise ValidationError("Start date must be in the future")
-    if instance.room.bookings.filter(
-        Q(
-            start_date__lt=instance.end_date,
-            end_date__gt=instance.start_date,
-            is_cancelled=False,
-        )
-        & ~Q(id=instance.id)
-    ).exists():
-        raise ValidationError("Room is not available for the given dates")

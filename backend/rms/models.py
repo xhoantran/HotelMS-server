@@ -8,7 +8,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django_celery_beat.models import PeriodicTask
 
-from backend.pms.models import Hotel
+from backend.pms.models import Hotel, RatePlan
 
 
 class RuleNotEnabledError(Exception):
@@ -17,11 +17,11 @@ class RuleNotEnabledError(Exception):
 
 class RatePlanPercentageFactor(models.Model):
     rate_plan = models.OneToOneField(
-        "pms.RatePlan",
+        RatePlan,
         on_delete=models.CASCADE,
         related_name="percentage_factor",
     )
-    percentage_factor = models.SmallIntegerField(default=0)
+    percentage_factor = models.SmallIntegerField()
 
 
 class DynamicPricingSetting(models.Model):
@@ -31,7 +31,7 @@ class DynamicPricingSetting(models.Model):
         on_delete=models.CASCADE,
         related_name="dynamic_pricing_setting",
     )
-    is_enabled = models.BooleanField(default=True)
+    is_enabled = models.BooleanField(default=False)
     is_lead_days_based = models.BooleanField(default=False)
     lead_day_window = models.PositiveSmallIntegerField(default=60)
     is_weekday_based = models.BooleanField(default=False)
@@ -45,9 +45,6 @@ class DynamicPricingSetting(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self) -> str:
-        return f"{self.hotel.name} - DPS"
-
 
 class IntervalBaseRate(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
@@ -57,7 +54,7 @@ class IntervalBaseRate(models.Model):
         related_name="interval_base_rates",
     )
     dates = DateRangeField()
-    base_rate = models.PositiveIntegerField(default=0)
+    base_rate = models.PositiveIntegerField()
 
     class Meta:
         constraints = [

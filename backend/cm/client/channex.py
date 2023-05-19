@@ -85,23 +85,58 @@ class ChannexClient:
             return date
         return date.strftime("%Y-%m-%d")
 
-    def get_webhooks(self, params=None):
-        return self._get("webhooks", params=params)
-
-    def _find_webhooks_id(
+    def list_webhooks(
         self,
+        property_id: str,
+        params: dict = {},
+        page: int = 1,
+        limit: int = 100,
+    ):
+        params = {
+            "filter[property_id]": property_id,
+            "pagination[page]": page,
+            "pagination[limit]": limit,
+            **params,
+        }
+        response = self._get("webhooks", params=params)
+        if response.status_code != 200:
+            raise ChannexClientAPIError("Failed to list webhooks", response.status_code)
+
+        return response.json().get("data")
+
+    def list_all_webhooks(
+        self,
+        property_id: str,
+        params: dict = {},
+        limit: int = 100,
+    ):
+        def _list_all_webhooks():
+            page = 1
+            while True:
+                data = self.list_webhooks(
+                    property_id=property_id,
+                    params=params,
+                    page=page,
+                    limit=limit,
+                )
+                yield from data
+                if len(data) < limit:
+                    break
+                page += 1
+
+        return list(_list_all_webhooks())
+
+    def find_webhook_id(
+        self,
+        property_id: str,
         callback_url: str,
         event_mask: str,
     ):
-        webhooks = (
-            self.get_webhooks(
-                params={
-                    "filter[callback_url]": callback_url,
-                    "filter[event_mask]": event_mask,
-                }
-            )
-            .json()
-            .get("data", [])
+        webhooks = self.list_all_webhooks(
+            property_id=property_id,
+            params={
+                "filter[callback_url]": callback_url,
+            },
         )
         try:
             for webhook in webhooks:
@@ -114,7 +149,7 @@ class ChannexClient:
             ChannexClientAPIError("Failed to parse webhooks list api response")
         return None
 
-    def _create_webhook(
+    def create_webhook(
         self,
         property_id: str,
         callback_url: str,
@@ -124,18 +159,25 @@ class ChannexClient:
         is_active: bool = True,
         send_data: bool = True,
     ):
-        data = {
-            "webhook": {
-                "property_id": property_id,
-                "callback_url": callback_url,
-                "event_mask": event_mask,
-                "request_params": request_params,
-                "headers": headers,
-                "is_active": is_active,
-                "send_data": send_data,
+        response = self._post(
+            "webhooks",
+            data={
+                "webhook": {
+                    "property_id": property_id,
+                    "callback_url": callback_url,
+                    "event_mask": event_mask,
+                    "request_params": request_params,
+                    "headers": headers,
+                    "is_active": is_active,
+                    "send_data": send_data,
+                }
             },
-        }
-        return self._post("webhooks", data=data)
+        )
+        if response.status_code != 201:
+            raise ChannexClientAPIError(
+                "Failed to create webhook", response.status_code
+            )
+        return response.json().get("data")
 
     def update_or_create_webhook(
         self,
@@ -147,14 +189,19 @@ class ChannexClient:
         is_active: bool = True,
         send_data: bool = True,
     ):
-        response = self._create_webhook(
-            property_id,
-            callback_url,
-            event_mask,
-            request_params,
-            headers,
-            is_active,
-            send_data,
+        response = self._post(
+            "webhooks",
+            data={
+                "webhook": {
+                    "property_id": property_id,
+                    "callback_url": callback_url,
+                    "event_mask": event_mask,
+                    "request_params": request_params,
+                    "headers": headers,
+                    "is_active": is_active,
+                    "send_data": send_data,
+                }
+            },
         )
         if response.status_code == 201:
             return response.json().get("data")
@@ -166,7 +213,8 @@ class ChannexClient:
                 and error_message
                 == "only one webhook for callback url and event mask allowed"
             ):
-                webhook_id = self._find_webhooks_id(
+                webhook_id = self.find_webhook_id(
+                    property_id,
                     callback_url,
                     event_mask,
                 )
@@ -193,10 +241,10 @@ class ChannexClient:
             error_message = "Unknown error"
         raise ChannexClientAPIError(error_message, response.status_code)
 
-    # TODO: Deprecated
     def get_webhook(self, webhook_id):
         return self._get(f"webhooks/{webhook_id}")
 
+    # TODO: Add check response
     def _update_webhook(
         self,
         webhook_id: str,
@@ -223,57 +271,64 @@ class ChannexClient:
             },
         )
 
-    # TODO: Deprecated
+    # TODO: Add check response
     def delete_webhook(self, webhook_id):
         return self._delete(f"webhooks/{webhook_id}")
 
-    # TODO: Deprecated
-    def get_properties(self, options: bool = True):
+    def list_properties(self, options: bool = True):
         if options:
-            return self._get("properties/options")
-        return self._get("properties")
-
-    # TODO: Deprecated
-    def get_property(self, property_id):
-        return self._get(f"properties/{property_id}")
-
-    def _get_room_types(self, property_id, options: bool = True):
-        if options:
-            return self._get(f"room_types/options?filter[property_id]={property_id}")
-        return self._get(f"room_types/?filter[property_id]={property_id}")
-
-    def get_room_types(self, property_id, options: bool = True):
-        response = self._get_room_types(property_id, options)
+            response = self._get("properties/options")
+        else:
+            response = self._get("properties")
         if response.status_code != 200:
             raise ChannexClientAPIError(response.json(), response.status_code)
         return response.json().get("data")
 
-    # TODO: Deprecated
-    def get_room_type(self, room_type_id):
-        return self._get(f"room_types/{room_type_id}")
+    def get_property(self, property_id):
+        response = self._get(f"properties/{property_id}")
+        if response.status_code != 200:
+            raise ChannexClientAPIError(response.json(), response.status_code)
+        return response.json().get("data")
 
-    def _get_rate_plans(self, property_id, room_type_id=None, options: bool = True):
+    def list_room_types(self, property_id, options: bool = True):
+        if options:
+            response = self._get(
+                f"room_types/options?filter[property_id]={property_id}"
+            )
+        else:
+            response = self._get(f"room_types/?filter[property_id]={property_id}")
+        if response.status_code != 200:
+            raise ChannexClientAPIError(response.json(), response.status_code)
+        return response.json().get("data")
+
+    def get_room_type(self, room_type_id):
+        response = self._get(f"room_types/{room_type_id}")
+        if response.status_code != 200:
+            raise ChannexClientAPIError(response.json(), response.status_code)
+        return response.json().get("data")
+
+    def list_rate_plans(self, property_id, room_type_id=None, options: bool = True):
         params = {}
         params["filter[property_id]"] = property_id
         if room_type_id:
             params["filter[room_type_id]"] = room_type_id
 
         if options:
-            return self._get("rate_plans/options", params=params)
-        return self._get("rate_plans/", params=params)
+            response = self._get("rate_plans/options", params=params)
+        else:
+            response = self._get("rate_plans/", params=params)
 
-    def get_rate_plans(self, property_id, room_type_id=None, options: bool = True):
-        response = self._get_rate_plans(property_id, room_type_id, options)
         if response.status_code != 200:
             raise ChannexClientAPIError(response.json(), response.status_code)
+
         return response.json().get("data")
 
-    # TODO: Deprecated
+    # TODO: Add check response
     def get_rate_plan(self, rate_plan_id):
         return self._get(f"rate_plans/{rate_plan_id}")
 
-    # TODO: Deprecated
-    def get_room_type_rate_plan_restrictions(
+    # TODO: Add check response
+    def list_room_type_rate_plan_restrictions(
         self,
         property_pms_id: str,
         date: datetime.date | str = None,
@@ -294,6 +349,51 @@ class ChannexClient:
             raise ValueError("Must provide date or date_from and date_to")
         return self._get("restrictions/", params=params)
 
-    # TODO: Deprecated
-    def update_room_type_rate_plan_restrictions(self, data: Iterator[dict]):
+    # TODO: Add check response
+    def update_rate_plan_restrictions(self, data: Iterator[dict]):
         return self._post("restrictions", data={"values": data})
+
+    def list_bookings(
+        self,
+        property_id,
+        params: dict = {},
+        page: int = 1,
+        limit: int = 100,
+    ):
+        params = {
+            "filter[property_id]": property_id,
+            "pagination[page]": page,
+            "pagination[limit]": limit,
+            **params,
+        }
+        response = self._get("bookings", params=params)
+
+        if response.status_code != 200:
+            raise ChannexClientAPIError(response.json(), response.status_code)
+
+        return response.json().get("data")
+
+    def list_booking_revisions_feed(
+        self, property_id, params: dict = {}, page: int = 1, limit: int = 100
+    ):
+        params = {
+            "filter[property_id]": property_id,
+            "order[inserted_at]": "desc",
+            "pagination[page]": page,
+            "pagination[limit]": limit,
+            **params,
+        }
+        response = self._get("booking_revisions/feed", params=params)
+
+        if response.status_code != 200:
+            raise ChannexClientAPIError(response.json(), response.status_code)
+
+        return response.json().get("data")
+
+    def get_booking_revision(self, booking_revision_id):
+        response = self._get(f"booking_revisions/{booking_revision_id}")
+
+        if response.status_code != 200:
+            raise ChannexClientAPIError(response.json(), response.status_code)
+
+        return response.json().get("data")

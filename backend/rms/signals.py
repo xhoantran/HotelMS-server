@@ -1,6 +1,7 @@
 import json
 
-from django.db.models.signals import post_delete, post_save
+from django.core.exceptions import ValidationError
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django_celery_beat.models import CrontabSchedule, PeriodicTask
@@ -11,6 +12,7 @@ from .adapter import DynamicPricingAdapter
 from .models import (
     DynamicPricingSetting,
     Hotel,
+    IntervalBaseRate,
     LeadDaysBasedRule,
     MonthBasedRule,
     OccupancyBasedTriggerRule,
@@ -50,7 +52,16 @@ def post_save_hotel(sender, instance: Hotel, created, **kwargs):
 @receiver(post_save, sender=RatePlan, dispatch_uid="rms:post_save_rate_plan")
 def post_save_rate_plan(sender, instance: RatePlan, created, **kwargs):
     if created:
-        RatePlanPercentageFactor.objects.create(rate_plan=instance)
+        RatePlanPercentageFactor.objects.create(rate_plan=instance, percentage_factor=0)
+    DynamicPricingAdapter.invalidate_cache(instance.room_type.hotel.id)
+
+
+@receiver(pre_save, sender=DynamicPricingSetting, dispatch_uid="rms:pre_save_dps")
+def pre_save_dynamic_pricing_setting(sender, instance: DynamicPricingSetting, **kwargs):
+    if instance.is_enabled and instance.default_base_rate == 0:
+        raise ValidationError(
+            "Default base rate must be greater than 0 if dynamic pricing is enabled."
+        )
 
 
 @receiver(post_save, sender=DynamicPricingSetting, dispatch_uid="rms:post_save_dps")
@@ -69,6 +80,7 @@ def post_save_dynamic_pricing_setting(sender, instance, created, **kwargs):
     DynamicPricingAdapter.invalidate_cache(instance.id)
 
 
+@receiver(post_save, sender=IntervalBaseRate, dispatch_uid="rms:rm_cache")
 @receiver(post_save, sender=LeadDaysBasedRule, dispatch_uid="rms:rm_cache")
 @receiver(post_save, sender=WeekdayBasedRule, dispatch_uid="rms:rm_cache")
 @receiver(post_save, sender=MonthBasedRule, dispatch_uid="rms:rm_cache")
@@ -98,8 +110,9 @@ def post_save_time_based_trigger_rule(
         timezone=instance.setting.hotel.timezone,
     )
     periodic_task, _ = PeriodicTask.objects.get_or_create(
-        name=f"TimeBasedTriggerRule at {instance.hour} for {instance.setting.hotel}",
-        task="backend.rms.tasks.handle_time_based_trigger_rule",
+        name=f"Time based rule trigger at {instance.hour} for "
+        f"{instance.setting.hotel.name} with {instance.day_ahead} day(s) ahead",
+        task="backend.rms.tasks.handle_time_based_trigger",
         crontab=crontab,
         kwargs=json.dumps(
             {

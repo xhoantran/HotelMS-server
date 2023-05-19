@@ -1,11 +1,10 @@
 from django.conf import settings
-from django.urls import path
 from rest_framework.routers import DefaultRouter, SimpleRouter
 
 from .views import (
-    ChannexAvailabilityCallbackAPIView,
     HotelEmployeeModelViewSet,
     HotelModelViewSet,
+    RatePlanModelViewSet,
     RoomModelViewSet,
     RoomTypeModelViewSet,
 )
@@ -31,6 +30,11 @@ router.register(
     basename="room-type",
 )
 router.register(
+    "rate-plan",
+    RatePlanModelViewSet,
+    basename="rate-plan",
+)
+router.register(
     "room",
     RoomModelViewSet,
     basename="room",
@@ -39,10 +43,3 @@ router.register(
 
 app_name = "pms"
 urlpatterns = router.urls
-urlpatterns += [
-    path(
-        "channex/availability-callback/",
-        ChannexAvailabilityCallbackAPIView.as_view(),
-        name="channex-availability-callback",
-    ),
-]

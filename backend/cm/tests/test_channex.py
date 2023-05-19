@@ -278,7 +278,6 @@ def test_save_all_upcoming_bookings(
                         "status": Booking.StatusChoices.NEW,
                         "arrival_date": "2020-01-01",
                         "departure_date": "2020-01-03",
-                        "inserted_at": "2020-01-01T00:00:00+00:00",
                         "rooms": [
                             {
                                 "checkin_date": "2020-01-01",

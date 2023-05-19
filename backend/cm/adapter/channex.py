@@ -243,7 +243,6 @@ class ChannexAdapter:
             cm_booking_connector_obj = CMBookingConnector(
                 cm_hotel_connector=self.cm_hotel_connector,
                 cm_id=booking_data["id"],
-                inserted_at=booking_data["attributes"]["inserted_at"],
             )
             cm_booking_connector_obj.booking_obj = booking_obj
             new_cm_booking_connectors.append(cm_booking_connector_obj)
@@ -330,8 +329,6 @@ class ChannexAdapter:
         booking_connector = CMBookingConnector.objects.create(
             cm_hotel_connector=self.cm_hotel_connector,
             cm_id=booking_cm_id,
-            # TODO: Naive datetime. Check if UTC or not
-            inserted_at=revision_data["attributes"]["inserted_at"],
         )
 
         # Validate revision data

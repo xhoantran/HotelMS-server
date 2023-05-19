@@ -118,7 +118,6 @@ def test_cm_booking_webhook_trigger_integration(
                 "booking_id": booking_cm_id,
                 "departure_date": "2023-05-19",
                 "id": revision_cm_id,
-                "inserted_at": "2023-05-15T19:42:35.756211",
                 "property_id": data["hotel_id"],
                 "rooms": [
                     {
@@ -178,7 +177,6 @@ def test_cm_booking_webhook_trigger_integration(
                 "booking_id": booking_cm_id,
                 "departure_date": "2023-05-20",
                 "id": revision_cm_id,
-                "inserted_at": "2023-05-16T19:42:35.756211",
                 "property_id": data["hotel_id"],
                 "rooms": [
                     {
@@ -232,7 +230,6 @@ def test_cm_booking_webhook_trigger_integration(
                 "booking_id": booking_cm_id,
                 "departure_date": "2023-05-20",
                 "id": revision_cm_id,
-                "inserted_at": "2023-05-16T19:42:35.756211",
                 "property_id": data["hotel_id"],
                 "rooms": [
                     {

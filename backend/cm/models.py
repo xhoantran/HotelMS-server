@@ -132,7 +132,6 @@ class CMBookingConnector(models.Model):
         null=True,
     )
     cm_id = models.UUIDField(null=True, blank=True)
-    inserted_at = models.DateTimeField()
 
     class Meta:
         constraints = [

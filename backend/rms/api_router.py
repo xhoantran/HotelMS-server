@@ -7,6 +7,7 @@ from .views import (
     IntervalBaseRateModelViewSet,
     OccupancyBasedTriggerRuleModelViewSet,
     RatePlanPercentageFactorUpdateAPIView,
+    RecalculateAllRateAPIView,
     TimeBasedTriggerRuleModelViewSet,
 )
 
@@ -45,5 +46,10 @@ urlpatterns += [
         "rate-plan-percentage-factor/<uuid:rate_plan__uuid>/",
         RatePlanPercentageFactorUpdateAPIView.as_view(),
         name="rate-plan-percentage-factor",
+    ),
+    path(
+        "recalculate-all-rate/<uuid:uuid>/",
+        RecalculateAllRateAPIView.as_view(),
+        name="recalculate-all-rate",
     ),
 ]

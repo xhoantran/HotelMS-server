@@ -5,9 +5,34 @@ from django.utils import timezone
 
 from backend.cm.models import CMHotelConnector
 from backend.pms.models import RoomType
+from backend.rms.models import DynamicPricingSetting
 from config.celery_app import app
 
 from .adapter import DynamicPricingAdapter
+
+
+@app.task
+def recalculate_all_rate(dynamic_pricing_setting_id: int):
+    with transaction.atomic():
+        dynamic_pricing_setting = DynamicPricingSetting.objects.get(
+            id=dynamic_pricing_setting_id
+        )
+        hotel = dynamic_pricing_setting.hotel
+        adapter = DynamicPricingAdapter(hotel=hotel)
+        room_types = RoomType.objects.filter(hotel=hotel).values_list("id", flat=True)
+        today = timezone.now().astimezone(hotel.timezone).date()
+        new_restrictions = adapter.calculate_and_update_rates(
+            room_types=room_types,
+            dates=[
+                today,
+                today + timezone.timedelta(days=hotel.inventory_days),
+            ],
+        )
+        if new_restrictions:
+            cm_hotel_connector = CMHotelConnector.objects.get(pms=hotel)
+            cm_hotel_connector.adapter.save_rate_plan_restrictions(
+                new_rate_plan_restrictions=new_restrictions
+            )
 
 
 @app.task
@@ -26,7 +51,7 @@ def handle_occupancy_based_trigger(
         if new_restrictions:
             cm_hotel_connector = CMHotelConnector.objects.get(hotel_id=hotel_id)
             cm_hotel_connector.adapter.save_rate_plan_restrictions(
-                rate_plan_restrictions=new_restrictions
+                new_rate_plan_restrictions=new_restrictions
             )
 
 
@@ -45,5 +70,5 @@ def handle_time_based_trigger(hotel_id: int, day_ahead: int, zone_info: str):
         if new_restrictions:
             cm_hotel_connector = CMHotelConnector.objects.get(hotel_id=hotel_id)
             cm_hotel_connector.adapter.save_rate_plan_restrictions(
-                rate_plan_restrictions=new_restrictions
+                new_rate_plan_restrictions=new_restrictions
             )

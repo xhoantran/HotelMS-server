@@ -296,7 +296,9 @@ class ChannexAdapter:
             )
         return rate_plan_restrictions
 
-    def save_rate_plan_restrictions(self, new_rate_plan_restrictions):
+    def save_rate_plan_restrictions(
+        self, new_rate_plan_restrictions: list[RatePlanRestrictions]
+    ):
         rate_plan_restrictions = self.get_prep_rate_plan_restrictions(
             new_rate_plan_restrictions
         )

@@ -13,7 +13,7 @@ from .serializers import (
     DynamicPricingSettingSerializer,
     IntervalBaseRateSerializer,
     OccupancyBasedTriggerRuleSerializer,
-    RatePlanPercentageFactorSerializer,
+    RatePlanPercentageFactorWriteOnlySerializer,
     TimeBasedTriggerRuleSerializer,
 )
 
@@ -21,7 +21,7 @@ from .serializers import (
 class RatePlanPercentageFactorUpdateAPIView(generics.UpdateAPIView):
     permission_classes = [IsAdmin]
     queryset = RatePlanPercentageFactor.objects.all()
-    serializer_class = RatePlanPercentageFactorSerializer
+    serializer_class = RatePlanPercentageFactorWriteOnlySerializer
     lookup_field = "rate_plan__uuid"
 
 

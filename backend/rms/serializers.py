@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from backend.pms.models import RatePlan, RoomType
 from backend.utils.serializers import DateRangeField
 
 from .models import (
@@ -15,12 +16,29 @@ from .models import (
 )
 
 
-class RatePlanPercentageFactorSerializer(serializers.ModelSerializer):
-    rate_plan = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
-
+class RatePlanPercentageFactorWriteOnlySerializer(serializers.ModelSerializer):
     class Meta:
         model = RatePlanPercentageFactor
-        fields = ("rate_plan", "percentage_factor")
+        fields = ("percentage_factor",)
+
+
+class RatePlanRMSSerializer(serializers.ModelSerializer):
+    percentage_factor = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RatePlan
+        fields = ("uuid", "name", "percentage_factor")
+
+    def get_percentage_factor(self, obj):
+        return obj.percentage_factor.percentage_factor
+
+
+class RoomTypeRMSSerializer(serializers.ModelSerializer):
+    rate_plans = RatePlanRMSSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = RoomType
+        fields = ("uuid", "name", "rate_plans")
 
 
 class DynamicPricingSettingReadOnlySerializer(serializers.ModelSerializer):
@@ -110,19 +128,17 @@ class DynamicPricingSettingSerializer(serializers.ModelSerializer):
     time_based_trigger_rules = TimeBasedTriggerRuleSerializer(
         required=False, read_only=True, many=True
     )
-    rate_plan_percentage_factors = serializers.SerializerMethodField()
     interval_base_rates = IntervalBaseRateSerializer(
         required=False, read_only=True, many=True
     )
+    room_types = serializers.SerializerMethodField()
 
     class Meta:
         model = DynamicPricingSetting
         exclude = ("id", "hotel")
 
-    def get_rate_plan_percentage_factors(self, obj):
-        rate_plan_percentage_factors = RatePlanPercentageFactor.objects.filter(
-            rate_plan__room_type__hotel=obj.hotel
+    def get_room_types(self, obj):
+        queryset = RoomType.objects.filter(hotel=obj.hotel).prefetch_related(
+            "rate_plans"
         )
-        return RatePlanPercentageFactorSerializer(
-            rate_plan_percentage_factors, many=True
-        ).data
+        return RoomTypeRMSSerializer(queryset, many=True).data

@@ -2,8 +2,6 @@ from typing import Any
 
 from django.contrib import admin
 from django.http.request import HttpRequest
-from django_celery_results.admin import TaskResultAdmin
-from django_celery_results.models import TaskResult
 
 from .models import (
     DynamicPricingSetting,
@@ -11,8 +9,6 @@ from .models import (
     OccupancyBasedTriggerRule,
     TimeBasedTriggerRule,
 )
-
-admin.site.register(TaskResult, TaskResultAdmin)
 
 
 @admin.display(description="Hotel")

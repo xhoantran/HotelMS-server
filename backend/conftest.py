@@ -262,7 +262,6 @@ def mocked_channex_setup_hotel(mocker):
                         "status": Booking.StatusChoices.NEW,
                         "arrival_date": "2020-01-01",
                         "departure_date": "2020-01-03",
-                        "inserted_at": "2020-01-01T00:00:00Z",
                         "rooms": [
                             {
                                 "checkin_date": "2020-01-01",

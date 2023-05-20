@@ -37,6 +37,10 @@ class HotelAdapter:
             lower = booking_room["dates"].lower
             upper = booking_room["dates"].upper
             for date in self.daterange(lower, upper):
-                room_type_inventory_map[booking_room["room_type"]][date] += 1
+                room_type_map = room_type_inventory_map[booking_room["room_type"]]
+                try:
+                    room_type_map[date] += 1
+                except KeyError:
+                    room_type_map[date] = 1
 
         return room_type_inventory_map

@@ -63,7 +63,9 @@ def handle_time_based_trigger(hotel_id: int, day_ahead: int, zone_info: str):
             + timezone.timedelta(days=day_ahead)
         ).date()
         adapter = DynamicPricingAdapter(hotel=hotel_id)
-        room_types = RoomType.objects.filter(hotel_id=hotel_id)
+        room_types = RoomType.objects.filter(hotel_id=hotel_id).values_list(
+            "id", flat=True
+        )
         new_restrictions = adapter.calculate_and_update_rates(
             room_types=room_types, dates=[date, date]
         )

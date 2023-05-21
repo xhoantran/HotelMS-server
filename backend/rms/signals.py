@@ -80,6 +80,19 @@ def post_save_dynamic_pricing_setting(sender, instance, created, **kwargs):
     DynamicPricingAdapter.invalidate_cache(instance.id)
 
 
+@receiver(post_delete, sender=RatePlanPercentageFactor, dispatch_uid="rms:rm_cache")
+@receiver(post_delete, sender=IntervalBaseRate, dispatch_uid="rms:rm_cache")
+@receiver(post_delete, sender=OccupancyBasedTriggerRule, dispatch_uid="rms:rm_cache")
+@receiver(post_delete, sender=TimeBasedTriggerRule, dispatch_uid="rms:rm_cache")
+def invalidate_dynamic_pricing_cache_post_delete(sender, instance, **kwargs):
+    if isinstance(instance, RatePlanPercentageFactor):
+        hotel = instance.rate_plan.room_type.hotel
+        DynamicPricingAdapter.invalidate_cache(hotel.dynamic_pricing_setting.id)
+    else:
+        DynamicPricingAdapter.invalidate_cache(instance.setting.id)
+
+
+@receiver(post_save, sender=RatePlanPercentageFactor, dispatch_uid="rms:rm_cache")
 @receiver(post_save, sender=IntervalBaseRate, dispatch_uid="rms:rm_cache")
 @receiver(post_save, sender=LeadDaysBasedRule, dispatch_uid="rms:rm_cache")
 @receiver(post_save, sender=WeekdayBasedRule, dispatch_uid="rms:rm_cache")
@@ -87,8 +100,12 @@ def post_save_dynamic_pricing_setting(sender, instance, created, **kwargs):
 @receiver(post_save, sender=SeasonBasedRule, dispatch_uid="rms:rm_cache")
 @receiver(post_save, sender=OccupancyBasedTriggerRule, dispatch_uid="rms:rm_cache")
 @receiver(post_save, sender=TimeBasedTriggerRule, dispatch_uid="rms:rm_cache")
-def invalidate_dynamic_pricing_cache(sender, instance, created, **kwargs):
-    DynamicPricingAdapter.invalidate_cache(instance.setting.id)
+def invalidate_dynamic_pricing_cache_post_save(sender, instance, created, **kwargs):
+    if isinstance(instance, RatePlanPercentageFactor):
+        hotel = instance.rate_plan.room_type.hotel
+        DynamicPricingAdapter.invalidate_cache(hotel.dynamic_pricing_setting.id)
+    else:
+        DynamicPricingAdapter.invalidate_cache(instance.setting.id)
 
 
 @receiver(

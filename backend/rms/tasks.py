@@ -49,7 +49,7 @@ def handle_occupancy_based_trigger(
             ),
         )
         if new_restrictions:
-            cm_hotel_connector = CMHotelConnector.objects.get(hotel_id=hotel_id)
+            cm_hotel_connector = CMHotelConnector.objects.get(pms=hotel_id)
             cm_hotel_connector.adapter.save_rate_plan_restrictions(
                 new_rate_plan_restrictions=new_restrictions
             )
@@ -70,7 +70,7 @@ def handle_time_based_trigger(hotel_id: int, day_ahead: int, zone_info: str):
             room_types=room_types, dates=[date, date]
         )
         if new_restrictions:
-            cm_hotel_connector = CMHotelConnector.objects.get(hotel_id=hotel_id)
+            cm_hotel_connector = CMHotelConnector.objects.get(pms=hotel_id)
             cm_hotel_connector.adapter.save_rate_plan_restrictions(
                 new_rate_plan_restrictions=new_restrictions
             )

@@ -75,4 +75,11 @@ def test_post_save_dynamic_pricing_setting(
     setting.save()
     rule = TimeBasedTriggerRule.objects.get(setting=setting)
     assert rule.periodic_task is not None
+    assert not rule.periodic_task.enabled
+
+    setting.is_enabled = True
+    setting.default_base_rate = 100000
+    setting.save()
+    rule = TimeBasedTriggerRule.objects.get(setting=setting)
+    assert rule.periodic_task is not None
     assert rule.periodic_task.enabled

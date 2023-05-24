@@ -74,7 +74,7 @@ def post_save_dynamic_pricing_setting(sender, instance, created, **kwargs):
         "periodic_task"
     )
     for rule in rules:
-        rule.periodic_task.enabled = instance.is_time_based
+        rule.periodic_task.enabled = instance.is_time_based and instance.is_enabled
         periodic_tasks.append(rule.periodic_task)
     PeriodicTask.objects.bulk_update(periodic_tasks, ["enabled"])
     DynamicPricingAdapter.invalidate_cache(instance.id)

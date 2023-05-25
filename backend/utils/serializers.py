@@ -21,19 +21,21 @@ class DateRangeField(serializers.Field):
             raise serializers.ValidationError("start_date must be before end_date")
 
         bounds = data.get("bounds", "[]")
-        return DateRange(start_date, end_date, bounds)
+
+        """Normalize bounds"""
+        if bounds[0] == "(":
+            bounds = "[" + bounds[1]
+            start_date = start_date + timedelta(days=1)
+        if bounds[1] == "]":
+            bounds = bounds[0] + ")"
+            end_date = end_date + timedelta(days=1)
+
+        return DateRange(start_date, end_date, bounds=bounds)
 
     def to_representation(self, value: DateRange):
-        if value._bounds == "[)":
-            return {
-                "start_date": value.lower,
-                # We want [] instead of [)
-                "end_date": value.upper - timedelta(days=1),
-            }
-        elif value._bounds == "[]":
-            return {
-                "start_date": value.lower,
-                "end_date": value.upper,
-            }
-        else:
-            raise ValueError("Invalid bounds")
+        return {
+            "start_date": value.lower,
+            # We want [] instead of [)
+            "end_date": value.upper - timedelta(days=1),
+            "bounds": "[]",
+        }

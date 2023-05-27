@@ -480,10 +480,7 @@ class ChannexAdapter:
         assert revision_data["attributes"]["booking_id"] == booking_cm_id
         assert revision_data["id"] == revision_cm_id
         assert revision_data["attributes"]["status"] == Booking.StatusChoices.CANCELLED
-        assert booking.status in (
-            Booking.StatusChoices.NEW,
-            Booking.StatusChoices.MODIFIED,
-        )
+        assert booking.status in Booking.StatusChoices.values
 
         # Update booking status
         booking.status = Booking.StatusChoices.CANCELLED

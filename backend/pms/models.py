@@ -100,7 +100,7 @@ class RatePlanRestrictions(models.Model):
         related_name="restrictions",
     )
     date = models.DateField()
-    rate = models.IntegerField()
+    rate = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

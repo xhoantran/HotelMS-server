@@ -8,20 +8,43 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django_celery_beat.models import PeriodicTask
 
-from backend.pms.models import Hotel, RatePlan
+from backend.pms.models import Hotel, RatePlan, RatePlanRestrictions
 
 
 class RuleNotEnabledError(Exception):
     pass
 
 
-class RatePlanPercentageFactor(models.Model):
+class RMSRatePlanRestrictions(models.Model):
+    restriction = models.OneToOneField(
+        RatePlanRestrictions,
+        on_delete=models.CASCADE,
+        related_name="rms",
+        primary_key=True,
+    )
+    base_rate = models.PositiveIntegerField()
+
+
+class RMSRatePlan(models.Model):
     rate_plan = models.OneToOneField(
         RatePlan,
         on_delete=models.CASCADE,
-        related_name="percentage_factor",
+        related_name="rms",
     )
-    percentage_factor = models.SmallIntegerField()
+    percentage_factor = models.SmallIntegerField(default=0)
+    increment_factor = models.IntegerField(default=0)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.percentage_factor < -100:
+            raise ValidationError("Percentage factor cannot be less than -100")
+
+        if bool(self.percentage_factor) and bool(self.increment_factor):
+            raise ValidationError(
+                "Cannot set both percentage factor and increment factor"
+            )
+        super().save(*args, **kwargs)
 
 
 class DynamicPricingSetting(models.Model):
@@ -66,11 +89,6 @@ class IntervalBaseRate(models.Model):
                 name="exclude_overlapping_interval_base_rates",
             ),
         ]
-
-
-class FactorChoices:
-    PERCENTAGE = 0
-    INCREMENT = 1
 
 
 class RuleFactor(models.Model):

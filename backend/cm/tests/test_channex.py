@@ -7,7 +7,12 @@ from backend.pms.models import Booking, Hotel, RatePlan, RatePlanRestrictions, R
 
 from ..adapter import ChannexAdapter, ChannexException
 from ..client.channex import ChannexClientAPIError
-from ..models import CMHotelConnector, CMRatePlanConnector, CMRoomTypeConnector
+from ..models import (
+    CMBookingConnector,
+    CMHotelConnector,
+    CMRatePlanConnector,
+    CMRoomTypeConnector,
+)
 
 
 def test_validate_api_key(mocker):
@@ -211,9 +216,7 @@ def test_get_all_upcoming_bookings(
         cm_hotel_connector.adapter.get_all_upcoming_bookings(limit=3)
 
 
-def test_save_all_upcoming_bookings(
-    mocked_channex_validation, mocker, cm_hotel_connector_factory
-):
+def test_save_all_upcoming_bookings(db, mocked_channex_validation, mocker):
     hotel_id = str(uuid.uuid4())
     rate_plan_id = str(uuid.uuid4())
     room_type_id = str(uuid.uuid4())
@@ -269,6 +272,9 @@ def test_save_all_upcoming_bookings(
     )
     assert RoomType.objects.count() == 1
 
+    cm_booking_1_id = str(uuid.uuid4())
+    cm_booking_2_id = str(uuid.uuid4())
+
     mocker.patch(
         "backend.cm.client.channex.ChannexClient.list_bookings",
         side_effect=[
@@ -286,8 +292,23 @@ def test_save_all_upcoming_bookings(
                             },
                         ],
                     },
-                    "id": str(uuid.uuid4()),
-                }
+                    "id": cm_booking_1_id,
+                },
+                {
+                    "attributes": {
+                        "status": Booking.StatusChoices.NEW,
+                        "arrival_date": "2020-01-04",
+                        "departure_date": "2020-01-04",
+                        "rooms": [
+                            {
+                                "checkin_date": "2020-01-04",
+                                "checkout_date": "2020-01-04",
+                                "room_type_id": room_type_id,
+                            },
+                        ],
+                    },
+                    "id": cm_booking_2_id,
+                },
             ],
             [],
         ],
@@ -298,16 +319,29 @@ def test_save_all_upcoming_bookings(
     )
     cm_hotel_connector.adapter.save_all_upcoming_bookings()
 
-    new_booking = Booking.objects.first()
-    assert new_booking.status == Booking.StatusChoices.NEW
-    assert new_booking.dates.lower == datetime.date(2020, 1, 1)
-    assert new_booking.dates.upper == datetime.date(2020, 1, 3)
-    assert new_booking.booking_rooms.count() == 1
-
-    new_booking_room = new_booking.booking_rooms.first()
+    new_booking_1 = CMBookingConnector.objects.get(cm_id=cm_booking_1_id).pms
+    assert new_booking_1.status == Booking.StatusChoices.NEW
+    assert new_booking_1.dates.lower == datetime.date(2020, 1, 1)
+    assert new_booking_1.dates.upper == datetime.date(2020, 1, 3)
+    assert new_booking_1.booking_rooms.count() == 1
+    new_booking_room = new_booking_1.booking_rooms.first()
     assert new_booking_room.room_type == RoomType.objects.first()
     assert new_booking_room.dates.lower == datetime.date(2020, 1, 1)
     assert new_booking_room.dates.upper == datetime.date(2020, 1, 3)
+
+    """
+    We will not handle this case for now because it will chnage the current DateRange
+    implementation. We will need to change to DatetimeRange in order to handle this case.
+    """
+    # new_booking_2 = CMBookingConnector.objects.get(cm_id=cm_booking_2_id).pms
+    # assert new_booking_2.status == Booking.StatusChoices.NEW
+    # assert new_booking_2.dates.lower == datetime.date(2020, 1, 4)
+    # assert new_booking_2.dates.upper == datetime.date(2020, 1, 5)
+    # assert new_booking_2.booking_rooms.count() == 1
+    # new_booking_room = new_booking_2.booking_rooms.first()
+    # assert new_booking_room.room_type == RoomType.objects.first()
+    # assert new_booking_room.dates.lower == datetime.date(2020, 1, 4)
+    # assert new_booking_room.dates.upper == datetime.date(2020, 1, 5)
 
 
 def test_get_prep_rate_plan_restrictions(db, mocked_channex_validation, mocker):

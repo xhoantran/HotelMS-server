@@ -6,7 +6,7 @@ from .models import (
     DynamicPricingSetting,
     IntervalBaseRate,
     OccupancyBasedTriggerRule,
-    RatePlanPercentageFactor,
+    RMSRatePlan,
     TimeBasedTriggerRule,
 )
 from .serializers import (
@@ -21,7 +21,7 @@ from .tasks import recalculate_all_rate
 
 class RatePlanPercentageFactorUpdateAPIView(generics.UpdateAPIView):
     permission_classes = [IsAdmin]
-    queryset = RatePlanPercentageFactor.objects.all()
+    queryset = RMSRatePlan.objects.all()
     serializer_class = RatePlanPercentageFactorWriteOnlySerializer
     lookup_field = "rate_plan__uuid"
 

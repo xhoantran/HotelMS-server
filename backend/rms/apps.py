@@ -7,4 +7,5 @@ class RmsConfig(AppConfig):
     verbose_name = _("Revenue Management System")
 
     def ready(self):
+        import backend.rms.pg_triggers  # noqa F401
         import backend.rms.signals  # noqa F401

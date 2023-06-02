@@ -8,8 +8,8 @@ from django.utils import timezone
 
 from backend.pms.models import Booking, BookingRoom, RatePlanRestrictions
 
-from ..adapter import DynamicPricingAdapter
-from ..models import FactorChoices, LeadDaysBasedRule
+from ..adapter import DynamicPricingAdapter, FactorChoices
+from ..models import LeadDaysBasedRule
 
 
 def test_dynamic_pricing_adapter_cache(
@@ -47,9 +47,7 @@ def test_dynamic_pricing_adapter_default():
 
 
 def test_dynamic_pricing_adapter_interval_base_rate(
-    hotel_factory,
-    interval_base_rate_factory,
-    rate_plan_factory,
+    interval_base_rate_factory, rate_plan_factory
 ):
     rate_plan = rate_plan_factory()
     hotel = rate_plan.room_type.hotel
@@ -60,12 +58,19 @@ def test_dynamic_pricing_adapter_interval_base_rate(
         dates=(start_date, end_date),
     )
     adapter = DynamicPricingAdapter(hotel=hotel)
-    assert (
-        adapter.get_base_rate(
-            date=start_date,
-            rate_plan_id=rate_plan.id,
-        )
-        == interval_base_rate.base_rate
+    assert adapter.get_base_rate(date=start_date) == interval_base_rate.base_rate
+
+
+def test_dynamic_pricing_adapter_rate_plan_factor(rate_plan_factory):
+    rate_plan = rate_plan_factory()
+    hotel = rate_plan.room_type.hotel
+    rate_plan_rms = rate_plan.rms
+    rate_plan_rms.percentage_factor = 20
+    rate_plan_rms.save()
+    adapter = DynamicPricingAdapter(hotel=hotel)
+    assert adapter.get_rate_plan_factor(rate_plan_id=rate_plan.id) == (
+        20,
+        FactorChoices.PERCENTAGE,
     )
 
 
@@ -314,13 +319,12 @@ def test_dynamic_pricing_adapter_calculate_rate(
     # Calculate rate with no rules
     adapter = DynamicPricingAdapter(hotel=hotel)
     assert (
-        adapter.calculate_rate(
+        adapter.calculate_restriction_base_rate(
             date=timezone.now().date(),
             current_datetime=timezone.now(),
-            occupancy=10,
             rate_plan_id=rate_plan.id,
         )
-        == setting.default_base_rate
+        == setting.default_base_rate  # 100
     )
 
     # Create rules
@@ -331,22 +335,39 @@ def test_dynamic_pricing_adapter_calculate_rate(
     adapter = DynamicPricingAdapter(hotel=hotel)
 
     assert (
-        adapter.calculate_rate(
+        adapter.calculate_restriction_base_rate(
+            rate_plan_id=rate_plan.id,
             date=current_datetime.date(),
             current_datetime=current_datetime,
-            occupancy=0,
-            rate_plan_id=rate_plan.id,
         )
         == setting.default_base_rate * 1.5
     )
     assert (
-        adapter.calculate_rate(
+        adapter.calculate_restriction_rate(
+            date=current_datetime.date(),
+            current_datetime=current_datetime,
+            occupancy=0,
+            base_rate=100,
+        )
+        == 100
+    )
+
+    assert (
+        adapter.calculate_restriction_base_rate(
+            rate_plan_id=rate_plan.id,
+            date=current_datetime.date(),
+            current_datetime=current_datetime,
+        )
+        == 150  # 100 * (1 + 0.5)
+    )
+    assert (
+        adapter.calculate_restriction_rate(
             date=current_datetime.date(),
             current_datetime=current_datetime,
             occupancy=1,
-            rate_plan_id=rate_plan.id,
+            base_rate=100,
         )
-        == setting.default_base_rate * 1.5 + 150
+        == 250  # 100 + 150
     )
 
     # Not enabled
@@ -355,11 +376,11 @@ def test_dynamic_pricing_adapter_calculate_rate(
 
     adapter = DynamicPricingAdapter(hotel=hotel)
     with pytest.raises(ValidationError):
-        adapter.calculate_rate(
+        adapter.calculate_restriction_rate(
             date=current_datetime.date(),
             current_datetime=current_datetime,
             occupancy=1,
-            rate_plan_id=rate_plan.id,
+            base_rate=100,
         )
 
 

@@ -77,6 +77,7 @@ DJANGO_APPS = [
     "django.forms",
 ]
 THIRD_PARTY_APPS = [
+    "pgtrigger",
     "allauth",
     "allauth.account",
     "allauth.socialaccount",

@@ -9,7 +9,7 @@ from .models import (
     LeadDaysBasedRule,
     MonthBasedRule,
     OccupancyBasedTriggerRule,
-    RatePlanPercentageFactor,
+    RMSRatePlan,
     SeasonBasedRule,
     TimeBasedTriggerRule,
     WeekdayBasedRule,
@@ -18,23 +18,27 @@ from .models import (
 
 class RatePlanPercentageFactorWriteOnlySerializer(serializers.ModelSerializer):
     class Meta:
-        model = RatePlanPercentageFactor
-        fields = ("percentage_factor",)
+        model = RMSRatePlan
+        fields = ("percentage_factor", "increment_factor")
 
 
-class RatePlanRMSSerializer(serializers.ModelSerializer):
+class RMSRatePlanSerializer(serializers.ModelSerializer):
     percentage_factor = serializers.SerializerMethodField()
+    increment_factor = serializers.SerializerMethodField()
 
     class Meta:
         model = RatePlan
-        fields = ("uuid", "name", "percentage_factor")
+        fields = ("uuid", "name", "percentage_factor", "increment_factor")
 
     def get_percentage_factor(self, obj):
-        return obj.percentage_factor.percentage_factor
+        return obj.rms.percentage_factor
+
+    def get_increment_factor(self, obj):
+        return obj.rms.increment_factor
 
 
-class RoomTypeRMSSerializer(serializers.ModelSerializer):
-    rate_plans = RatePlanRMSSerializer(many=True, read_only=True)
+class RMSRoomTypeSerializer(serializers.ModelSerializer):
+    rate_plans = RMSRatePlanSerializer(many=True, read_only=True)
 
     class Meta:
         model = RoomType
@@ -141,4 +145,4 @@ class DynamicPricingSettingSerializer(serializers.ModelSerializer):
         queryset = RoomType.objects.filter(hotel=obj.hotel).prefetch_related(
             "rate_plans"
         )
-        return RoomTypeRMSSerializer(queryset, many=True).data
+        return RMSRoomTypeSerializer(queryset, many=True).data

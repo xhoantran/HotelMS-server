@@ -1,5 +1,6 @@
 import math
-from datetime import date, datetime, time, timedelta
+from datetime import date as date_cls
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from django.core.cache import cache
@@ -11,17 +12,22 @@ from backend.pms.models import Hotel, RatePlan, RatePlanRestrictions
 
 from .models import (
     DynamicPricingSetting,
-    FactorChoices,
     IntervalBaseRate,
     LeadDaysBasedRule,
     MonthBasedRule,
     OccupancyBasedTriggerRule,
-    RatePlanPercentageFactor,
+    RMSRatePlan,
+    RMSRatePlanRestrictions,
     SeasonBasedRule,
     TimeBasedTriggerRule,
     WeekdayBasedRule,
 )
 from .utils import is_within_period
+
+
+class FactorChoices:
+    PERCENTAGE = 0
+    INCREMENT = 1
 
 
 class DynamicPricingAdapter:
@@ -64,12 +70,15 @@ class DynamicPricingAdapter:
         )
         # Rate plan percentage factors
         rate_plan_percentage_factors = list(
-            RatePlanPercentageFactor.objects.filter(
+            RMSRatePlan.objects.filter(
                 rate_plan__room_type__hotel=self.setting.hotel
-            ).values("rate_plan__id", "percentage_factor")
+            ).values("rate_plan__id", "percentage_factor", "increment_factor")
         )
         self.rate_plan_percentage_factors = {
-            factor["rate_plan__id"]: factor["percentage_factor"]
+            factor["rate_plan__id"]: {
+                "percentage_factor": factor["percentage_factor"],
+                "increment_factor": factor["increment_factor"],
+            }
             for factor in rate_plan_percentage_factors
         }
         # Lead days based rules
@@ -248,7 +257,7 @@ class DynamicPricingAdapter:
             self.is_time_based = ret["is_time_based"]
             self.time_based_trigger_rules = ret["time_based_trigger_rules"]
 
-    def get_base_rate(self, date: date, rate_plan_id: int) -> int:
+    def get_base_rate(self, date: date_cls) -> int:
         # Get the base rate for the given date and rate plan id.
         base_rate = self.default_base_rate
         for interval_base_rate in self.interval_base_rates:
@@ -259,8 +268,7 @@ class DynamicPricingAdapter:
             ):
                 base_rate = interval_base_rate["base_rate"]
                 break
-        percentage_factor = self.rate_plan_percentage_factors[rate_plan_id]
-        return math.ceil(base_rate * (1 + percentage_factor / 100))
+        return base_rate
 
     @staticmethod
     def _factor_to_repr(factor: dict()) -> tuple[float | int, int]:
@@ -277,8 +285,21 @@ class DynamicPricingAdapter:
             return (factor["percentage_factor"], FactorChoices.PERCENTAGE)
         return (factor["increment_factor"], FactorChoices.INCREMENT)
 
+    def get_rate_plan_factor(self, rate_plan_id: int) -> int:
+        """
+        Get the rate plan factor for the given rate plan id.
+
+        Args:
+            rate_plan_id (int): The rate plan id.
+
+        Returns:
+            int: The rate plan factor.
+        """
+        rate_plan_factor = self.rate_plan_percentage_factors[rate_plan_id]
+        return self._factor_to_repr(rate_plan_factor)
+
     def get_lead_days_based_factor(
-        self, date: date, current_datetime: datetime
+        self, date: date_cls, current_datetime: datetime
     ) -> float:
         """
         Get the lead time based factor for a given room type and date.
@@ -299,7 +320,7 @@ class DynamicPricingAdapter:
             return self._factor_to_repr(self.lead_days_based_rules[-1])
         return self._factor_to_repr(self.lead_days_based_rules[lead_days])
 
-    def get_weekday_based_factor(self, date: date) -> float:
+    def get_weekday_based_factor(self, date: date_cls) -> float:
         """
         Get the weekday based factor for a given date.
 
@@ -313,7 +334,7 @@ class DynamicPricingAdapter:
             return (0, FactorChoices.PERCENTAGE)
         return self._factor_to_repr(self.weekday_based_rules[date.weekday()])
 
-    def get_month_based_factor(self, date: date | datetime) -> float:
+    def get_month_based_factor(self, date: date_cls | datetime) -> float:
         """
         Get the month based factor for a given date.
 
@@ -327,7 +348,7 @@ class DynamicPricingAdapter:
             return (0, FactorChoices.PERCENTAGE)
         return self._factor_to_repr(self.month_based_rules[date.month - 1])
 
-    def get_season_based_factor(self, date: date) -> float:
+    def get_season_based_factor(self, date: date_cls) -> float:
         """
         Get the season based factor for a given date.
 
@@ -365,7 +386,7 @@ class DynamicPricingAdapter:
 
     @staticmethod
     def _get_trigger_datetime(
-        date: date,
+        date: date_cls,
         day_ahead: int,
         hour: int,
         tzinfo: ZoneInfo,
@@ -378,7 +399,7 @@ class DynamicPricingAdapter:
 
     def get_time_based_factor(
         self,
-        date: date,
+        date: date_cls,
         current_datetime: datetime,
         occupancy: int,
     ) -> float:
@@ -420,17 +441,53 @@ class DynamicPricingAdapter:
     ):
         percentage_sum = 0
         increment_sum = 0
+
+        # Calculate the sum of percentage and increment factors
         for factor in factors:
             if factor[1] == FactorChoices.PERCENTAGE:
                 percentage_sum += factor[0]
             else:
                 increment_sum += factor[0]
-        return math.ceil(base_rate * (1 + percentage_sum / 100)) + increment_sum
 
-    def calculate_rate(
+        # Calculate the final rate, percentage is applied first then increment is applied
+        # round() is used to avoid floating point precision issues
+        # e.g. 100 * 1.1 = 110.00000000000001, which will cause the final rate to be 111
+        ret = round(base_rate * (1 + percentage_sum / 100), 2)
+        return math.ceil(ret) + increment_sum
+
+    def calculate_restriction_base_rate(
         self,
         rate_plan_id: int,
-        date: date,
+        date: date_cls,
+        current_datetime: datetime,
+    ) -> int:
+        """
+        Calculate the base rate for a given date, rate plan and current datetime.
+
+        Args:
+            rate_plan_id (int): The rate plan ID to calculate the base rate for.
+            date (date): The date to calculate the base rate for.
+            current_datetime (datetime): The current datetime to calculate the base rate for.
+
+        Returns:
+            int: The calculated base rate.
+        """
+        if not self.is_enabled:
+            raise ValidationError("Dynamic pricing is not enabled.")
+
+        base_rate = self.get_base_rate(date)
+        factors = []
+        factors.append(self.get_rate_plan_factor(rate_plan_id))
+        factors.append(self.get_lead_days_based_factor(date, current_datetime))
+        factors.append(self.get_weekday_based_factor(date))
+        factors.append(self.get_month_based_factor(date))
+        factors.append(self.get_season_based_factor(date))
+        return self._calculate_rate_by_factors(base_rate, factors)
+
+    def calculate_restriction_rate(
+        self,
+        base_rate: int,
+        date: date_cls,
         current_datetime: datetime,
         occupancy: int,
     ) -> int:
@@ -438,7 +495,7 @@ class DynamicPricingAdapter:
         Calculate the rate for a given date, rate and occupancy.
 
         Args:
-            rate (int): The rate to calculate the multiplier factor for.
+            base_rate (int): The base rate to calculate the multiplier factor for.
             date (date): The date to calculate the multiplier factor for.
             current_time (timezone.datetime.time): The time to calculate the multiplier factor for.
             occupancy (int): The occupancy to calculate the multiplier factor for.
@@ -449,25 +506,23 @@ class DynamicPricingAdapter:
         if not self.is_enabled:
             raise ValidationError("Dynamic pricing is not enabled.")
 
-        base_rate = self.get_base_rate(date, rate_plan_id)
+        if base_rate <= 0:
+            raise ValidationError("Base rate must be positive.")
+
         factors = []
-        factors.append(self.get_lead_days_based_factor(date, current_datetime))
-        factors.append(self.get_weekday_based_factor(date))
-        factors.append(self.get_month_based_factor(date))
-        factors.append(self.get_season_based_factor(date))
         factors.append(self.get_occupancy_based_factor(occupancy))
         factors.append(self.get_time_based_factor(date, current_datetime, occupancy))
         return self._calculate_rate_by_factors(base_rate, factors)
 
     def calculate_and_update_rates(
-        self, room_types: list[int], dates: tuple[date, date]
+        self, room_types: list[int], dates: tuple[date_cls, date_cls]
     ) -> list[RatePlanRestrictions]:
         """
         Calculate and update rates for a given list of room types and dates.
 
         Args:
             room_types (list[int]): The internal room type IDs to calculate and update rates for.
-            dates (tuple[date, date]): The range of dates to calculate and update rates for.
+            dates (tuple[date_cls, date_cls]): The range of dates to calculate and update rates for.
 
         Returns:
             list[RatePlanRestrictions]: The updated rate plan restrictions.
@@ -479,19 +534,22 @@ class DynamicPricingAdapter:
             self.setting.hotel.adapter.get_room_type_inventory_map(room_types, dates)
         )
 
-        # Get rate plan restrictions
+        # Get rate plan restrictions, also restriction rms to update the base rate
         rate_plans = RatePlan.objects.filter(
             room_type__hotel=self.setting.hotel,
             room_type__id__in=room_types,
         ).prefetch_related(
             Prefetch(
                 "restrictions",
-                queryset=RatePlanRestrictions.objects.filter(date__range=dates),
+                queryset=RatePlanRestrictions.objects.filter(
+                    date__range=dates
+                ).select_related("rms"),
                 to_attr="filtered_restrictions",
             )
         )
         current_datetime = timezone.now()
         new_restrictions = []
+        new_restriction_rms = []
 
         # Loop through mapped rate plans
         for rate_plan in rate_plans:
@@ -502,19 +560,29 @@ class DynamicPricingAdapter:
                     # and worth to send notification
                     continue
 
-                new_rate = self.calculate_rate(
+                new_base_rate = self.calculate_restriction_base_rate(
                     rate_plan_id=rate_plan.id,
+                    date=restriction.date,
+                    current_datetime=current_datetime,
+                )
+
+                new_rate = self.calculate_restriction_rate(
+                    base_rate=new_base_rate,
                     date=restriction.date,
                     current_datetime=current_datetime,
                     occupancy=room_type_inventory_map[room_type_id][restriction.date],
                 )
 
-                if new_rate != restriction.rate:
+                if (
+                    new_rate != restriction.rate
+                    or new_base_rate != restriction.rms.base_rate
+                ):
+                    restriction.rms.base_rate = new_base_rate
                     restriction.rate = new_rate
                     new_restrictions.append(restriction)
+                    new_restriction_rms.append(restriction.rms)
 
-        # If number of updated rows is not 0
-        if RatePlanRestrictions.objects.bulk_update(new_restrictions, ["rate"]):
-            return new_restrictions
+        RatePlanRestrictions.objects.bulk_update(new_restrictions, ["rate"])
+        RMSRatePlanRestrictions.objects.bulk_update(new_restriction_rms, ["base_rate"])
 
-        return []
+        return new_restrictions

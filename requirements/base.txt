@@ -26,7 +26,7 @@ djangorestframework-api-key==2.3.0  # https://github.com/florimondmanca/djangore
 # DRF-spectacular for api documentation
 drf-spectacular==0.26.2  # https://github.com/tfranzel/drf-spectacular
 # Postgres
-django-pgtrigger==2.3.0 # https://django-pgtrigger.readthedocs.io/en/2.3.0/index.html
+django-pgtrigger==4.7.0 # https://django-pgtrigger.readthedocs.io/en/2.3.0/index.html
 
 # Planner Optimization
 # ------------------------------------------------------------------------------
